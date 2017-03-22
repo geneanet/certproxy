@@ -9,6 +9,7 @@ from cryptography.x509.oid import NameOID
 import os
 import uuid
 import datetime
+from base64 import urlsafe_b64encode
 
 def load_or_create_privatekey(pkey_file):
     """ Load a private key or create one """
@@ -131,3 +132,21 @@ def load_or_create_ca_certificate(crt_file, subject, pkey):
         with open(crt_file, 'wb') as f:
             f.write(crt.public_bytes(encoding=serialization.Encoding.PEM))
     return crt
+
+def rsa_key_fingerprint(key):
+    """ Return the SHA256 fingerprint of an RSA public or private key in url safe BASE64 """
+    fp = hashes.Hash(algorithm=hashes.SHA256(), backend=default_backend())
+
+    if isinstance(key, rsa.RSAPrivateKey):
+        fp.update(key.private_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        ))
+    elif isinstance(key, rsa.RSAPublicKey):
+        fp.update(key.public_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PublicFormat.PKCS1
+        ))
+
+    return urlsafe_b64encode(fp.finalize()).decode()
