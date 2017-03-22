@@ -3,8 +3,8 @@ import logging
 import argparse
 import yaml
 from munch import Munch
-from certproxy.server import Server
-from certproxy.client import Client
+from .server import Server
+from .client import Client
 
 rootlogger = logging.getLogger()
 logger = logging.getLogger('certproxy')
