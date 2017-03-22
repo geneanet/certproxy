@@ -5,17 +5,15 @@ import tornado.ioloop
 import tornado.web
 import tornado.httpserver
 import os
-import uuid
 import ssl
 from munch import Munch
-import datetime
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
-from cryptography.hazmat.primitives import hashes
+
+from .tools import load_or_create_privatekey, sign_certificate_request, load_or_create_ca_certificate
 
 import logging
 
@@ -70,8 +68,8 @@ class Server:
     def __init__(self, config):
         self.config = config # TODO : Check config keys
 
-        self.pkey = self.load_or_create_privatekey(self.config.server.ca.private_key)
-        self.cert = self.load_or_create_ca_certificate(self.config.server.ca.certificate, self.config.server.ca.subject)
+        self.pkey = load_or_create_privatekey(self.config.server.ca.private_key)
+        self.cert = load_or_create_ca_certificate(self.config.server.ca.certificate, self.config.server.ca.subject, self.pkey)
 
     def list_hosts(self):
         csrlist = set([ os.path.splitext(csr)[0] for csr in os.listdir(self.config.server.ca.csr_path) ])
@@ -86,121 +84,7 @@ class Server:
         csr_file = os.path.join(self.config.server.ca.csr_path, "%s.csr" % (host))
         crt_file = os.path.join(self.config.server.ca.crt_path, "%s.crt" % (host))
 
-        self.sign_certificate_request(csr_file, crt_file)
-
-    def sign_certificate_request(self, csr_file, crt_file):
-        with open(csr_file, 'rb') as f:
-            csr = x509.load_pem_x509_csr(data=f.read(), backend=default_backend())
-
-        crt = x509.CertificateBuilder().subject_name(
-            csr.subject
-        ).issuer_name(
-            self.cert.subject
-        ).public_key(
-            csr.public_key()
-        ).serial_number(
-            uuid.uuid4().int # pylint: disable=E1101
-        ).not_valid_before(
-            datetime.datetime.utcnow()
-        ).not_valid_after(
-            datetime.datetime.utcnow() + datetime.timedelta(days=365*10)
-        ).add_extension(
-            extension=x509.KeyUsage(
-                digital_signature=True, key_encipherment=True, content_commitment=True,
-                data_encipherment=False, key_agreement=False, encipher_only=False, decipher_only=False, key_cert_sign=False, crl_sign=False
-            ),
-            critical=True
-        ).add_extension(
-            extension=x509.BasicConstraints(ca=False, path_length=None),
-            critical=True
-        ).add_extension(
-            extension=x509.AuthorityKeyIdentifier.from_issuer_public_key(self.pkey.public_key()),
-            critical=False
-        ).sign(
-            private_key=self.pkey,
-            algorithm=hashes.SHA256(),
-            backend=default_backend()
-        )
-
-        with open(crt_file, 'wb') as f:
-            f.write(crt.public_bytes(encoding=serialization.Encoding.PEM))
-
-    def load_or_create_privatekey(self, pkey_file):
-        """ Load a private key or create one """
-        if os.path.isfile(pkey_file):
-            with open(pkey_file, 'rb') as f:
-                pkey = serialization.load_pem_private_key(
-                    data=f.read(),
-                    password=None,
-                    backend=default_backend()
-                )
-        else:
-            pkey = rsa.generate_private_key(
-                public_exponent=65537,
-                key_size=2048,
-                backend=default_backend()
-            )
-            with open(pkey_file, 'wb') as f:
-                f.write(pkey.private_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PrivateFormat.PKCS8,
-                    encryption_algorithm=serialization.NoEncryption()
-                ))
-        return pkey
-
-    def load_or_create_ca_certificate(self, crt_file, subject):
-        """ Load a CA certificate or create a self-signed one """
-        if os.path.isfile(crt_file):
-            with open(crt_file, 'rb') as f:
-                crt = x509.load_pem_x509_certificate(
-                    data=f.read(),
-                    backend=default_backend()
-                )
-        else:
-            subject = issuer = x509.Name([
-                x509.NameAttribute(NameOID.COMMON_NAME, subject.commonName),
-                x509.NameAttribute(NameOID.COUNTRY_NAME, subject.countryName),
-                x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, subject.stateOrProvinceName),
-                x509.NameAttribute(NameOID.LOCALITY_NAME, subject.locality),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, subject.organizationName),
-                x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, subject.organizationalUnitName),
-            ])
-            crt = x509.CertificateBuilder().subject_name(
-                subject
-            ).issuer_name(
-                issuer
-            ).public_key(
-                self.pkey.public_key()
-            ).serial_number(
-                uuid.uuid4().int # pylint: disable=E1101
-            ).not_valid_before(
-                datetime.datetime.utcnow()
-            ).not_valid_after(
-                datetime.datetime.utcnow() + datetime.timedelta(days=365*10)
-            ).add_extension(
-                extension=x509.KeyUsage(
-                    digital_signature=True, key_encipherment=True, key_cert_sign=True, crl_sign=True, content_commitment=True,
-                    data_encipherment=False, key_agreement=False, encipher_only=False, decipher_only=False
-                ),
-                critical=True
-            ).add_extension(
-                extension=x509.BasicConstraints(ca=True, path_length=0),
-                critical=True
-            ).add_extension(
-                extension=x509.SubjectKeyIdentifier.from_public_key(self.pkey.public_key()),
-                critical=True
-            ).add_extension(
-                extension=x509.AuthorityKeyIdentifier.from_issuer_public_key(self.pkey.public_key()),
-                critical=True
-            ).sign(
-                private_key=self.pkey,
-                algorithm=hashes.SHA256(),
-                backend=default_backend()
-            )
-
-            with open(crt_file, 'wb') as f:
-                f.write(crt.public_bytes(encoding=serialization.Encoding.PEM))
-        return crt
+        sign_certificate_request(csr_file, crt_file, self.cert, self.pkey)
 
     def run(self):
         # Start the app
