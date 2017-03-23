@@ -13,7 +13,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 
-from .tools import load_or_create_privatekey, sign_certificate_request, load_or_create_ca_certificate
+from .tools import load_or_create_privatekey, sign_certificate_request, load_or_create_ca_certificate, rsa_key_fingerprint
 
 import logging
 
@@ -52,7 +52,7 @@ class AuthorizeHandler(JSONHandler):
             with open(crt_file, 'r') as f:
                 crt = f.read()
             self.write({
-                'status': 'signed',
+                'status': 'authorized',
                 'crt': crt
             })
         else:

@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes
 
-from .tools import load_certificate, load_or_create_privatekey
+from .tools import load_certificate, load_or_create_privatekey, rsa_key_fingerprint
 
 import logging
 
@@ -60,4 +60,7 @@ class Client:
         response = client.fetch(request)
         json_data = Munch.fromDict(json.loads(response.body.decode()))
 
-        print(repr(json_data))
+        if json_data.status == 'pending':
+            print("Authorization requested (key fingerprint: %s)." % rsa_key_fingerprint(self.pkey.public_key()))
+        elif json_data.status == 'authorized':
+            print("Client authorized.")
