@@ -13,7 +13,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 
-from .tools import load_or_create_privatekey, sign_certificate_request, load_or_create_ca_certificate, rsa_key_fingerprint, x509_cert_fingerprint
+from .tools import load_or_create_privatekey, sign_certificate_request, load_or_create_ca_certificate, rsa_key_fingerprint, x509_cert_fingerprint, load_or_create_crl
 
 import logging
 
@@ -70,6 +70,7 @@ class Server:
 
         self.pkey = load_or_create_privatekey(self.config.server.ca.private_key)
         self.cert = load_or_create_ca_certificate(self.config.server.ca.certificate, self.config.server.ca.subject, self.pkey)
+        self.crl  = load_or_create_crl(self.config.server.ca.crl, self.cert, self.pkey)
 
     def list_hosts(self):
         hosts = {}

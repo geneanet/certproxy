@@ -11,6 +11,32 @@ import uuid
 import datetime
 from base64 import urlsafe_b64encode
 
+def load_or_create_crl(crl_file, ca_crt, pkey):
+    if os.path.isfile(crl_file):
+        with open(crl_file, 'rb') as f:
+            crl = x509.load_pem_x509_crl(
+                data=f.read(),
+                backend=default_backend()
+            )
+    else:
+        crl = x509.CertificateRevocationListBuilder().issuer_name(
+            ca_crt.subject
+        ).last_update(
+            datetime.datetime.today()
+        ).next_update(
+            datetime.datetime.today() + datetime.timedelta(days=1)
+        ).sign(
+            private_key=pkey,
+            algorithm=hashes.SHA256(),
+            backend=default_backend()
+        )
+        with open(crl_file, 'wb') as f:
+            f.write(crl.public_bytes(
+                encoding=serialization.Encoding.PEM,
+            ))
+
+    return crl
+
 def load_or_create_privatekey(pkey_file):
     """ Load a private key or create one """
     if os.path.isfile(pkey_file):
