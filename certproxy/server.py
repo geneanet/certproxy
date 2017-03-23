@@ -13,7 +13,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 
-from .tools import load_or_create_privatekey, sign_certificate_request, load_or_create_ca_certificate, rsa_key_fingerprint, x509_cert_fingerprint, load_or_create_crl
+from .tools import load_or_create_privatekey, sign_certificate_request, load_or_create_ca_certificate, rsa_key_fingerprint, x509_cert_fingerprint, load_or_create_crl, load_certificate, update_crl, revoked_cert
 
 import logging
 
@@ -87,10 +87,15 @@ class Server:
         for crt_file in os.listdir(self.config.server.ca.crt_path):
             with open(os.path.join(self.config.server.ca.crt_path, crt_file), 'rb') as f:
                 crt = x509.load_pem_x509_certificate(f.read(), default_backend())
+                revoked = revoked_cert(crt, self.crl)
+                if revoked:
+                    status = 'revoked'
+                else:
+                    status = 'authorized'
                 hosts[crt.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value] = {
                     'key_fingerprint': rsa_key_fingerprint(crt.public_key()),
                     'cert_fingerprint': x509_cert_fingerprint(crt),
-                    'status': 'authorized',
+                    'status': status,
                 }
 
         return hosts
@@ -100,6 +105,12 @@ class Server:
         crt_file = os.path.join(self.config.server.ca.crt_path, "%s.crt" % (host))
 
         sign_certificate_request(csr_file, crt_file, self.cert, self.pkey)
+
+    def revoke_host(self, host):
+        crt = load_certificate(os.path.join(self.config.server.ca.crt_path, "%s.crt" % (host)))
+        if revoked_cert(crt, self.crl):
+            return
+        self.crl = update_crl(self.config.server.ca.crl, crt, self.cert, self.pkey)
 
     def run(self):
         # Start the app

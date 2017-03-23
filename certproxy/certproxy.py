@@ -80,7 +80,8 @@ def run():
             server = Server(config)
             server.authorize_host(args.host)
         elif args.action == 'revoke':
-            pass
+            server = Server(config)
+            server.revoke_host(args.host)
         elif args.action == 'request':
             client = Client(config)
             client.requestauth()
