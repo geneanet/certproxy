@@ -13,7 +13,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 
-from .tools import load_or_create_privatekey, sign_certificate_request, load_or_create_ca_certificate, rsa_key_fingerprint
+from .tools import load_or_create_privatekey, sign_certificate_request, load_or_create_ca_certificate, rsa_key_fingerprint, x509_cert_fingerprint
 
 import logging
 
@@ -72,13 +72,27 @@ class Server:
         self.cert = load_or_create_ca_certificate(self.config.server.ca.certificate, self.config.server.ca.subject, self.pkey)
 
     def list_hosts(self):
-        csrlist = set([ os.path.splitext(csr)[0] for csr in os.listdir(self.config.server.ca.csr_path) ])
-        crtlist = set([ os.path.splitext(crt)[0] for crt in os.listdir(self.config.server.ca.crt_path) ])
+        hosts = {}
 
-        return {
-            'accepted': crtlist,
-            'requested': csrlist - crtlist
-        }
+        for csr_file in os.listdir(self.config.server.ca.csr_path):
+            with open(os.path.join(self.config.server.ca.csr_path, csr_file), 'rb') as f:
+                csr = x509.load_pem_x509_csr(f.read(), default_backend())
+                hosts[csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value] = {
+                    'key_fingerprint': rsa_key_fingerprint(csr.public_key()),
+                    'cert_fingerprint': None,
+                    'status': 'pending',
+                }
+
+        for crt_file in os.listdir(self.config.server.ca.crt_path):
+            with open(os.path.join(self.config.server.ca.crt_path, crt_file), 'rb') as f:
+                crt = x509.load_pem_x509_certificate(f.read(), default_backend())
+                hosts[crt.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value] = {
+                    'key_fingerprint': rsa_key_fingerprint(crt.public_key()),
+                    'cert_fingerprint': x509_cert_fingerprint(crt),
+                    'status': 'authorized',
+                }
+
+        return hosts
 
     def authorize_host(self, host):
         csr_file = os.path.join(self.config.server.ca.csr_path, "%s.csr" % (host))

@@ -150,3 +150,19 @@ def rsa_key_fingerprint(key):
         ))
 
     return urlsafe_b64encode(fp.finalize()).decode()
+
+def x509_cert_fingerprint(cert):
+    return urlsafe_b64encode(cert.fingerprint(hashes.SHA256())).decode()
+
+def print_array(rows, headers=None):
+    if not headers:
+        headers = []
+
+    widths = [max(map(len, map(str, col))) for col in zip(headers, *rows)]
+
+    if len(headers):
+        print(' '.join([val.ljust(width) for val, width in zip(headers, widths)]))
+        print('-' * (sum(widths) + len(widths) - 1))
+
+    for row in rows:
+        print(' '.join([str(val).ljust(width) for val, width in zip(row, widths)]))

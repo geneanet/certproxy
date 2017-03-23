@@ -5,6 +5,7 @@ import yaml
 from munch import Munch
 from .server import Server
 from .client import Client
+from .tools import print_array
 
 rootlogger = logging.getLogger()
 logger = logging.getLogger('certproxy')
@@ -70,10 +71,11 @@ def run():
         if args.action == 'list':
             server = Server(config)
             hosts = server.list_hosts()
-            for host in hosts['requested']:
-                print('R %s' % host)
-            for host in hosts['accepted']:
-                print('A %s' % host)
+            table = []
+            headers = ['Host', 'Status', 'Key', 'Certificate']
+            for host, hostinfos in hosts.items():
+                table.append([host, hostinfos['status'], hostinfos['key_fingerprint'], hostinfos['cert_fingerprint']])
+            print_array(table, headers)
         elif args.action == 'accept':
             server = Server(config)
             server.authorize_host(args.host)
