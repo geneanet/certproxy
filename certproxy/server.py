@@ -112,6 +112,20 @@ class Server:
             return
         self.crl = update_crl(self.config.server.ca.crl, crt, self.cert, self.pkey)
 
+    def clean_hosts(self):
+        hosts =  self.list_hosts()
+
+        for host, hostinfos in hosts.items():
+            if hostinfos['status'] in ('pending', 'revoked'):
+                csr_file = os.path.join(self.config.server.ca.csr_path, "%s.csr" % (host))
+                crt_file = os.path.join(self.config.server.ca.crt_path, "%s.crt" % (host))
+
+                if os.path.isfile(csr_file):
+                    os.remove(csr_file)
+
+                if os.path.isfile(crt_file):
+                    os.remove(crt_file)
+
     def run(self):
         # Start the app
         app = tornado.web.Application([

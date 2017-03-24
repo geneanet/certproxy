@@ -32,6 +32,7 @@ def run():
     parser_auth_sign.add_argument('host', help='Host to authorize')
     parser_auth_revoke = subp_auth.add_parser('revoke', help='Revoke an authorization')
     parser_auth_revoke.add_argument('host', help='Host to revoke')
+    subp_auth.add_parser('clean', help='Clean revoked hosts certificates and unaccepted requests')
 
     args = parser.parse_args()
 
@@ -85,3 +86,6 @@ def run():
         elif args.action == 'request':
             client = Client(config)
             client.requestauth()
+        elif args.action == 'clean':
+            server = Server(config)
+            server.clean_hosts()
