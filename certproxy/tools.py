@@ -22,9 +22,9 @@ def load_or_create_crl(crl_file, ca_crt, pkey):
         crl = x509.CertificateRevocationListBuilder().issuer_name(
             ca_crt.subject
         ).last_update(
-            datetime.datetime.today()
+            datetime.datetime.utcnow()
         ).next_update(
-            datetime.datetime.today() + datetime.timedelta(days=1)
+            datetime.datetime.utcnow() + datetime.timedelta(days=1)
         ).sign(
             private_key=pkey,
             algorithm=hashes.SHA256(),
@@ -47,14 +47,14 @@ def update_crl(crl_file, revoked_cert, ca_crt, pkey):
     crl = x509.CertificateRevocationListBuilder().issuer_name(
         ca_crt.subject
     ).last_update(
-        datetime.datetime.today()
+        datetime.datetime.utcnow()
     ).next_update(
-        datetime.datetime.today() + datetime.timedelta(days=1)
+        datetime.datetime.utcnow() + datetime.timedelta(days=1)
     ).add_revoked_certificate(
         x509.RevokedCertificateBuilder().serial_number(
             revoked_cert.serial
         ).revocation_date(
-            datetime.datetime.today()
+            datetime.datetime.utcnow()
         ).build(
             default_backend()
         )
