@@ -6,6 +6,7 @@ from munch import Munch
 from .server import Server
 from .client import Client
 from .tools import print_array
+from .ca import CA
 
 rootlogger = logging.getLogger()
 logger = logging.getLogger('certproxy')
@@ -70,22 +71,22 @@ def run():
         server.run()
     elif args.subcommand == 'auth':
         if args.action == 'list':
-            server = Server(config)
-            hosts = server.list_hosts()
+            ca = CA(config)
+            hosts = ca.list_hosts()
             table = []
             headers = ['Host', 'Status', 'Key', 'Certificate']
             for host, hostinfos in hosts.items():
                 table.append([host, hostinfos['status'], hostinfos['key_fingerprint'], hostinfos['cert_fingerprint']])
             print_array(table, headers)
         elif args.action == 'accept':
-            server = Server(config)
-            server.authorize_host(args.host)
+            ca = CA(config)
+            ca.authorize_host(args.host)
         elif args.action == 'revoke':
-            server = Server(config)
-            server.revoke_host(args.host)
+            ca = CA(config)
+            ca.revoke_host(args.host)
         elif args.action == 'request':
             client = Client(config)
             client.requestauth()
         elif args.action == 'clean':
-            server = Server(config)
-            server.clean_hosts()
+            ca = CA(config)
+            ca.clean_hosts()
