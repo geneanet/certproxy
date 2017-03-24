@@ -33,6 +33,8 @@ class JSONHandler(tornado.web.RequestHandler):
                 except ValueError as e:
                     logger.exception(e)
                     self.send_error(400) # Bad Request
+        elif not 'Content-Type' in self.request.headers:
+            self.json_data = None
         else:
             self.send_error(415) # Bad Media Type
 
