@@ -134,8 +134,12 @@ class Server:
 
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         context.load_cert_chain(self.config.server.ca.certificate, self.config.server.ca.private_key)
+        context.load_verify_locations(cafile=self.config.server.ca.certificate)
+        context.load_verify_locations(cafile=self.config.server.ca.crl)
         context.options &= ssl.OP_NO_SSLv3
         context.options &= ssl.OP_NO_SSLv2
+        context.verify_flags &= ssl.VERIFY_CRL_CHECK_LEAF
+        context.verify_mode = ssl.CERT_OPTIONAL
 
         server = tornado.httpserver.HTTPServer(app, ssl_options=context)
         server.listen(8888)
