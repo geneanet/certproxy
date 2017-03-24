@@ -142,5 +142,5 @@ class Server:
         context.verify_mode = ssl.CERT_OPTIONAL
 
         server = tornado.httpserver.HTTPServer(app, ssl_options=context)
-        server.listen(8888)
+        server.listen(self.config.server.socket.port)
         tornado.ioloop.IOLoop.current().start()
