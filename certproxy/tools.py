@@ -24,7 +24,7 @@ def load_or_create_crl(crl_file, ca_crt, pkey):
         ).last_update(
             datetime.datetime.utcnow()
         ).next_update(
-            datetime.datetime.utcnow() + datetime.timedelta(days=1)
+            datetime.datetime.utcnow() + datetime.timedelta(days=365*10)
         ).sign(
             private_key=pkey,
             algorithm=hashes.SHA256(),
@@ -49,7 +49,7 @@ def update_crl(crl_file, revoked_certs, ca_crt, pkey):
     ).last_update(
         datetime.datetime.utcnow()
     ).next_update(
-        datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        datetime.datetime.utcnow() + datetime.timedelta(days=365*10)
     )
 
     for cert in revoked_certs:
