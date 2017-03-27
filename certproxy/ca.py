@@ -58,7 +58,7 @@ class CA:
         crt = load_certificate(os.path.join(self.config.server.ca.crt_path, "%s.crt" % (host)))
         if revoked_cert(crt, self.crl):
             return
-        self.crl = update_crl(self.config.server.ca.crl, crt, self.cert, self.pkey)
+        self.crl = update_crl(self.config.server.ca.crl, [crt], self.cert, self.pkey)
 
     def clean_hosts(self):
         hosts =  self.list_hosts()

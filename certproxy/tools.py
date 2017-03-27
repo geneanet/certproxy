@@ -37,7 +37,7 @@ def load_or_create_crl(crl_file, ca_crt, pkey):
 
     return crl
 
-def update_crl(crl_file, revoked_cert, ca_crt, pkey):
+def update_crl(crl_file, revoked_certs, ca_crt, pkey):
     with open(crl_file, 'rb') as f:
         old_crl = x509.load_pem_x509_crl(
             data=f.read(),
@@ -50,15 +50,18 @@ def update_crl(crl_file, revoked_cert, ca_crt, pkey):
         datetime.datetime.utcnow()
     ).next_update(
         datetime.datetime.utcnow() + datetime.timedelta(days=1)
-    ).add_revoked_certificate(
-        x509.RevokedCertificateBuilder().serial_number(
-            revoked_cert.serial
-        ).revocation_date(
-            datetime.datetime.utcnow()
-        ).build(
-            default_backend()
-        )
     )
+
+    for cert in revoked_certs:
+        crl = crl.add_revoked_certificate(
+            x509.RevokedCertificateBuilder().serial_number(
+                cert.serial
+            ).revocation_date(
+                datetime.datetime.utcnow()
+            ).build(
+                default_backend()
+            )
+        )
 
     for cert in old_crl:
         crl = crl.add_revoked_certificate(cert)
