@@ -63,4 +63,6 @@ class Client:
         if json_data.status == 'pending':
             print("Authorization requested (key fingerprint: %s)." % rsa_key_fingerprint(self.pkey.public_key()))
         elif json_data.status == 'authorized':
+            with open(self.config.client.certificate, 'w') as f:
+                f.write(json_data.crt)
             print("Client authorized.")
