@@ -128,6 +128,9 @@ def load_certificate(cert_file):
 
     return cert
 
+def get_cn(subject):
+    return subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+
 def sign_certificate_request(csr_file, crt_file, ca_crt, ca_pkey):
     with open(csr_file, 'rb') as f:
         csr = x509.load_pem_x509_csr(data=f.read(), backend=default_backend())
