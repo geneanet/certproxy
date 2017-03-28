@@ -112,19 +112,23 @@ def load_or_create_privatekey(pkey_file):
             ))
     return pkey
 
-def load_certificate(cert_file):
-    with open(cert_file, 'rb') as f:
-        data = f.read()
-        if '-----BEGIN'.encode() in data:
-            cert = x509.load_pem_x509_certificate(
-                data=data,
-                backend=default_backend()
-            )
-        else:
-            cert = x509.load_der_x509_certificate(
-                data=data,
-                backend=default_backend()
-            )
+def load_certificate(cert_file=None, cert_bytes=None):
+    if cert_file:
+        with open(cert_file, 'rb') as f:
+            data = f.read()
+    else:
+        data = cert_bytes
+
+    if '-----BEGIN'.encode() in data:
+        cert = x509.load_pem_x509_certificate(
+            data=data,
+            backend=default_backend()
+        )
+    else:
+        cert = x509.load_der_x509_certificate(
+            data=data,
+            backend=default_backend()
+        )
 
     return cert
 
