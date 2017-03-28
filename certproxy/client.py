@@ -66,3 +66,14 @@ class Client:
             with open(self.config.client.certificate, 'w') as f:
                 f.write(json_data.crt)
             print("Client authorized.")
+
+    def requestcert(self, domain):
+        request = tornado.httpclient.HTTPRequest(
+            url=self.config.client.server + '/cert/' + domain,
+            method="GET",
+            client_key=self.config.client.private_key,
+            client_cert=self.config.client.certificate,
+            validate_cert=False)
+        client = tornado.httpclient.HTTPClient()
+        response = client.fetch(request)
+        json_data = Munch.fromDict(json.loads(response.body.decode()))

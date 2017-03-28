@@ -35,6 +35,12 @@ def run():
     parser_auth_revoke.add_argument('host', help='Host to revoke')
     subp_auth.add_parser('clean', help='Clean revoked hosts certificates and unaccepted requests')
 
+    parser_cert = subp.add_parser('cert', help='Ask server for certificates')
+    subp_cert = parser_cert.add_subparsers(dest='action', title='Actions', help="Action")
+    subp_cert.required = True
+    parser_cert_fetch = subp_cert.add_parser('fetch', help='Fetch a key/certificate pair')
+    parser_cert_fetch.add_argument('domain', help='Domain')
+
     args = parser.parse_args()
 
     # Logging
@@ -69,6 +75,10 @@ def run():
     if args.subcommand == 'server':
         server = Server(config)
         server.run()
+    elif args.subcommand == 'cert':
+        if args.action == 'fetch':
+            client = Client(config)
+            client.requestcert(args.domain)
     elif args.subcommand == 'auth':
         if args.action == 'list':
             ca = CA(config)
