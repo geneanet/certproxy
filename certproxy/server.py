@@ -13,6 +13,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 
+from .tools import load_certificate, get_cn, match_regexes
+
 import logging
 
 logger = logging.getLogger('certproxy.server')
@@ -64,6 +66,35 @@ class AuthorizeHandler(JSONHandler):
                 'status': 'pending'
             })
 
+class GetCertHandler(JSONHandler):
+    def __init__(self, application, request, server):
+        super().__init__(application, request)
+        self.server = server
+
+    def get(self, domain):
+        rawcert = self.request.get_ssl_certificate(binary_form=True)
+
+        if rawcert:
+            cert = load_certificate(cert_bytes=rawcert)
+            host = get_cn(cert.subject)
+
+            match = match_regexes(domain, self.server.config.server.certificates.keys())
+
+            if match:
+                certconfig = self.server.config.server.certificates[match.re.pattern]
+
+                if host in certconfig.allowed_hosts:
+                    self.write({
+                        'crt': '',
+                        'key': ''
+                    })
+                else:
+                    self.set_status(403)
+            else:
+                self.set_status(404)
+        else:
+            self.set_status(401)
+
 class Server:
     def __init__(self, config):
         self.config = config # TODO : Check config keys
@@ -72,6 +103,7 @@ class Server:
         # Start the app
         app = tornado.web.Application([
             (r"/authorize", AuthorizeHandler, dict(server=self)),
+            (r"/cert/(?P<domain>[a-zA-Z0-9-_.]+)", GetCertHandler, dict(server=self)),
         ])
 
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
