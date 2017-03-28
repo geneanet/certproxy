@@ -10,6 +10,7 @@ import os
 import uuid
 import datetime
 from base64 import urlsafe_b64encode
+import re
 
 def load_or_create_crl(crl_file, ca_crt, pkey):
     if os.path.isfile(crl_file):
@@ -259,3 +260,10 @@ def print_array(rows, headers=None):
 
     for row in rows:
         print(' '.join([str(val).ljust(width) for val, width in zip(row, widths)]))
+
+def match_regexes(item, regexes):
+    for rx in regexes:
+        match = re.fullmatch(rx, item)
+        if match:
+            return match
+    return None
