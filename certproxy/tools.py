@@ -279,3 +279,12 @@ def readfile(file, binary=False):
 
     with open(file, mode) as f:
         return f.read()
+
+def writefile(file, data):
+    if isinstance(data, bytes):
+        mode = 'wb'
+    else:
+        mode = 'w'
+
+    with open(file, mode) as f:
+        return f.write(data)
