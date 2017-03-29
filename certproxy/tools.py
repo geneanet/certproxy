@@ -90,28 +90,37 @@ def revoked_cert(cert, crl):
 
     return None
 
+def load_privatekey(pkey_file):
+    """ Load a private key """
+    with open(pkey_file, 'rb') as f:
+        pkey = serialization.load_pem_private_key(
+            data=f.read(),
+            password=None,
+            backend=default_backend()
+        )
+    return pkey
+
+def create_privatekey(pkey_file):
+    """ Create a private key """
+    pkey = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+        backend=default_backend()
+    )
+    with open(pkey_file, 'wb') as f:
+        f.write(pkey.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        ))
+    return pkey
+
 def load_or_create_privatekey(pkey_file):
     """ Load a private key or create one """
     if os.path.isfile(pkey_file):
-        with open(pkey_file, 'rb') as f:
-            pkey = serialization.load_pem_private_key(
-                data=f.read(),
-                password=None,
-                backend=default_backend()
-            )
+        return load_privatekey(pkey_file)
     else:
-        pkey = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048,
-            backend=default_backend()
-        )
-        with open(pkey_file, 'wb') as f:
-            f.write(pkey.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption()
-            ))
-    return pkey
+        return create_privatekey(pkey_file)
 
 def load_certificate(cert_file=None, cert_bytes=None):
     if cert_file:
