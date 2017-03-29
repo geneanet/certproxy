@@ -248,6 +248,9 @@ def rsa_key_fingerprint(key):
 def x509_cert_fingerprint(cert):
     return urlsafe_b64encode(cert.fingerprint(hashes.SHA256())).decode()
 
+def dump_pem(key_or_crt):
+    return key_or_crt.public_bytes(encoding=serialization.Encoding.PEM)
+
 def print_array(rows, headers=None):
     if not headers:
         headers = []
@@ -273,6 +276,6 @@ def readfile(file, binary=False):
         mode = 'rb'
     else:
         mode = 'r'
-        
+
     with open(file, mode) as f:
         return f.read()
