@@ -267,3 +267,12 @@ def match_regexes(item, regexes):
         if match:
             return match
     return None
+
+def readfile(file, binary=False):
+    if binary:
+        mode = 'rb'
+    else:
+        mode = 'r'
+        
+    with open(file, mode) as f:
+        return f.read()
