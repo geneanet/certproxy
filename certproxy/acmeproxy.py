@@ -1,12 +1,13 @@
 import acme
 import acme.client
 import acme.challenges
+import acme.messages
 from OpenSSL import crypto
 from datetime import datetime, timedelta
 import logging
 import os
 
-from .tools import load_certificate, load_privatekey, create_privatekey, dump_pem, readfile, writefile
+from .tools import load_certificate, load_privatekey, load_or_create_privatekey, dump_pem, readfile, writefile
 
 logger = logging.getLogger('certproxy.acmeproxy')
 
@@ -23,17 +24,48 @@ class ChallengeKeyAuth:
 class ACMEProxy:
     """ Proxy to request certificates from an ACME server with a local cache """
 
-    def __init__(self, client_key, directory, cache_path):
+    def __init__(self, client_key_file, registration_file, directory, cache_path, email=None):
         """ Constructor """
         self.directory = directory
-        self.client_key = acme.jose.JWKRSA(key=client_key)
         self.cache_path = cache_path
+        self.email = email
+
+        pkey = load_or_create_privatekey(client_key_file)
+        self.client_key = acme.jose.JWKRSA(key=pkey)
+
+        if os.path.isfile(registration_file):
+            registration_uri = readfile(registration_file).strip()
+        else:
+            registration_uri = None
 
         # Dict to store the unanswered challenges
         self.challenges = {}
 
         # Instanciate an ACME client
         self.client = acme.client.Client(self.directory, self.client_key)
+
+        # If we are already registered
+        if registration_uri:
+            # Check registration
+            logger.debug('Checking registration.')
+            regr = acme.messages.RegistrationResource(body=acme.messages.Registration(), uri=registration_uri)
+            regr = self.client.query_registration(regr)
+        else:
+            # Register
+            logger.debug('Registering.')
+            regr = self._register()
+            # Save registration URI
+            writefile(registration_file, regr.uri)
+
+        logger.info('ACME registration verified. %d certificates managed.', len(regr.body.certificates) if regr.body.certificates else 0)
+
+    def _register(self):
+        """ Register a new account at the ACME server """
+        newreg = acme.messages.NewRegistration(
+            contact=['mailto:{}'.format(self.email)]
+        )
+        regr = self.client.register(newreg)
+        return self.client.agree_to_tos(regr)
 
     def _supported_combination(self, challenges, combination):
         """ Check if a challenge combination is supported """
