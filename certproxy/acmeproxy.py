@@ -102,10 +102,12 @@ class ACMEProxy:
         """ Garbage collect expired challenges """
         for token, challenge in self.challenges:
             if challenge.expiration < datetime.utcnow():
+                logger.debug("Deleting expired key authorization for token %s.", token)
                 del self.challenges[token]
 
     def _add_challenge_keyauth(self, token, keyauth):
         """ Save challenge key authorization """
+        logger.debug("Saving key authorization for token %s.", token)
         self.challenges[token] = ChallengeKeyAuth(
             keyauth=keyauth,
             expiration=datetime.utcnow() + timedelta(days=1)
@@ -123,6 +125,7 @@ class ACMEProxy:
         """ Delete challenge key authorization """
         self._gc_challenge_keyauth()
         if token in self.challenges:
+            logger.debug("Deleting key authorization for token %s.", token)
             del self.challenges[token]
 
     def _request_new_cert(self, domain, keyfile, altname=None):

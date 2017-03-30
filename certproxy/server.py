@@ -129,6 +129,7 @@ class Server:
         context.verify_flags |= ssl.VERIFY_CRL_CHECK_LEAF
         context.verify_mode = ssl.CERT_OPTIONAL
 
+        logger.info('Starting web server on port %d.', self.config.server.socket.port)
         server = tornado.httpserver.HTTPServer(app, ssl_options=context)
         server.listen(self.config.server.socket.port)
         tornado.ioloop.IOLoop.current().start()
