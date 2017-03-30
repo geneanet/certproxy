@@ -7,6 +7,7 @@ from .server import Server
 from .client import Client
 from .tools import print_array
 from .ca import CA
+from .acmeproxy import ACMEProxy
 
 rootlogger = logging.getLogger()
 logger = logging.getLogger('certproxy')
@@ -73,7 +74,14 @@ def run():
 
     # Run requested subcommand
     if args.subcommand == 'server':
-        server = Server(config)
+        acmeproxy = ACMEProxy(
+            client_key_file=config.server.acme.private_key,
+            directory=config.server.acme.directory,
+            cache_path=config.server.acme.cache_path,
+            email=config.server.acme.email,
+            registration_file=config.server.acme.registration_file
+        )
+        server = Server(config, acmeproxy)
         server.run()
     elif args.subcommand == 'cert':
         if args.action == 'fetch':

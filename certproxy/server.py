@@ -95,15 +95,29 @@ class GetCertHandler(JSONHandler):
         else:
             self.set_status(401)
 
+class ChallengeHandler(tornado.web.RequestHandler):
+    def __init__(self, application, request, acmeproxy):
+        super().__init__(application, request)
+        self.acmeproxy = acmeproxy
+
+    def get(self, token):
+        keyauth = self.acmeproxy.get_challenge_keyauth(token)
+        if keyauth:
+            self.write(keyauth)
+        else:
+            self.set_status(404)
+
 class Server:
-    def __init__(self, config):
+    def __init__(self, config, acmeproxy):
         self.config = config # TODO : Check config keys
+        self.acmeproxy = acmeproxy
 
     def run(self):
         # Start the app
         app = tornado.web.Application([
             (r"/authorize", AuthorizeHandler, dict(server=self)),
             (r"/cert/(?P<domain>[a-zA-Z0-9-_.]+)", GetCertHandler, dict(server=self)),
+            (r"/.well-known/acme-challenge/(?P<token>.+)", ChallengeHandler, dict(acmeproxy=self.acmeproxy)),
         ])
 
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
