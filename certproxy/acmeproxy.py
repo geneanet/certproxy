@@ -24,14 +24,14 @@ class ChallengeKeyAuth:
 class ACMEProxy:
     """ Proxy to request certificates from an ACME server with a local cache """
 
-    def __init__(self, client_key_file, registration_file, directory, cache_path, email=None):
+    def __init__(self, private_key_file, registration_file, directory_uri, cache_path, email=None):
         """ Constructor """
-        self.directory = directory
+        self.directory_uri = directory_uri
         self.cache_path = cache_path
         self.email = email
 
-        pkey = load_or_create_privatekey(client_key_file)
-        self.client_key = acme.jose.JWKRSA(key=pkey)
+        pkey = load_or_create_privatekey(private_key_file)
+        self.private_key = acme.jose.JWKRSA(key=pkey)
 
         if os.path.isfile(registration_file):
             registration_uri = readfile(registration_file).strip()
@@ -42,7 +42,7 @@ class ACMEProxy:
         self.challenges = {}
 
         # Instanciate an ACME client
-        self.client = acme.client.Client(self.directory, self.client_key)
+        self.client = acme.client.Client(self.directory_uri, self.private_key)
 
         # If we are already registered
         if registration_uri:
@@ -79,7 +79,7 @@ class ACMEProxy:
         """ Answer a challenge """
         # HTTP-01 challenge
         if isinstance(challb.chall, acme.challenges.HTTP01):
-            response, validation = challb.response_and_validation(self.client_key)
+            response, validation = challb.response_and_validation(self.private_key)
             self._add_challenge_keyauth(challb.encode('token'), validation)
             return self.client.answer_challenge(challb, response)
         # Unsupported challenge

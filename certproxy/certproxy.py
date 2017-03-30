@@ -75,8 +75,8 @@ def run():
     # Run requested subcommand
     if args.subcommand == 'server':
         acmeproxy = ACMEProxy(
-            client_key_file=config.server.acme.private_key,
-            directory=config.server.acme.directory,
+            private_key_file=config.server.acme.private_key_file,
+            directory_uri=config.server.acme.directory_uri,
             cache_path=config.server.acme.cache_path,
             email=config.server.acme.email,
             registration_file=config.server.acme.registration_file
