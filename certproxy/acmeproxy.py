@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import logging
 import os
 
-from .tools import load_certificate, load_privatekey, load_or_create_privatekey, dump_pem, readfile, writefile
+from .tools import load_certificate, load_privatekey, load_or_create_privatekey, create_privatekey, dump_pem, readfile, writefile
 
 logger = logging.getLogger('certproxy.acmeproxy')
 
