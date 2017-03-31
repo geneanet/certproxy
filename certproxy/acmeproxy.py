@@ -152,7 +152,7 @@ class ACMEProxy:
 
         # Validate every domain
         auths = []
-        for dom in set(altname + domain):
+        for dom in set(altname + [domain]):
             logger.debug("Requesting challenges for domain %s.", dom)
             auth = self.client.request_domain_challenges(dom)
 
@@ -189,6 +189,8 @@ class ACMEProxy:
             except Exception:
                 logger.error('Unable to load private key %s', keyfile)
                 key = None
+        else:
+            key = None
 
         # Try to load certificate
         if os.path.isfile(crtfile):
@@ -197,6 +199,8 @@ class ACMEProxy:
             except Exception:
                 logger.error('Unable to load certificate %s', crtfile)
                 crt = None
+        else:
+            crt = None
 
         # Try to load chain
         if os.path.isfile(chainfile):
@@ -220,7 +224,7 @@ class ACMEProxy:
                 )
             else:
                 logger.warning('The certificate %s should be renewed', crtfile)
-        else:
+        elif crt and key:
             logger.error('The key %s does not correspond to the certificate %s', keyfile, crtfile)
 
         # If no private key has been loaded or rekey is requested
