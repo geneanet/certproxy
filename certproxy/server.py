@@ -87,9 +87,17 @@ class GetCertHandler(JSONHandler):
 
                 if host in certconfig.allowed_hosts:
                     logger.debug('Fetching certificate for domain %s', domain)
+                    altname = [match.expand(name) for name in certconfig.altname]
+                    (key, crt, chain) = self.server.acmeproxy.get_cert(
+                        domain,
+                        altname,
+                        certconfig.rekey if 'rekey' in certconfig else False,
+                        certconfig.renew_margin if 'renew_margin' in certconfig else 30,
+                    )
                     self.write({
-                        'crt': '',
-                        'key': ''
+                        'crt': crt,
+                        'key': key,
+                        'chain': chain
                     })
                 else:
                     logger.warning('Host %s unauthorized for domain %s.', host, domain)
