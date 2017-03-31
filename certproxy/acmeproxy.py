@@ -140,12 +140,12 @@ class ACMEProxy:
         req = crypto.X509Req()
         req.get_subject().CN = domain
         req.add_extensions([
-            crypto.X509Extension("keyUsage", False, "Digital Signature, Non Repudiation, Key Encipherment"),
-            crypto.X509Extension("basicConstraints", False, "CA:FALSE"),
+            crypto.X509Extension("keyUsage".encode(), False, "Digital Signature, Non Repudiation, Key Encipherment".encode()),
+            crypto.X509Extension("basicConstraints".encode(), False, "CA:FALSE".encode()),
         ])
         if altname:
             req.add_extensions([
-                crypto.X509Extension("subjectAltName", False, ', '.join(["DNS:{}".format(domain) for domain in altname]))
+                crypto.X509Extension("subjectAltName".encode(), False, ', '.join(["DNS:{}".format(domain) for domain in altname]).encode())
             ])
         req.set_pubkey(key)
         req.sign(key, "sha256")
