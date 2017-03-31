@@ -80,7 +80,7 @@ class ACMEProxy:
         # HTTP-01 challenge
         if isinstance(challb.chall, acme.challenges.HTTP01):
             response, validation = challb.response_and_validation(self.private_key)
-            self._add_challenge_keyauth(challb.encode('token'), validation)
+            self._add_challenge_keyauth(challb.chall.encode('token'), validation)
             return self.client.answer_challenge(challb, response)
         # Unsupported challenge
         else:
