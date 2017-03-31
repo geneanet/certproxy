@@ -78,21 +78,27 @@ class GetCertHandler(JSONHandler):
             cert = load_certificate(cert_bytes=rawcert)
             host = get_cn(cert.subject)
 
+            logger.debug('Certificate for %s requested by host %s.', domain, host)
+
             match = match_regexes(domain, self.server.config.server.certificates.keys())
 
             if match:
                 certconfig = self.server.config.server.certificates[match.re.pattern]
 
                 if host in certconfig.allowed_hosts:
+                    logger.debug('Fetching certificate for domain %s', domain)
                     self.write({
                         'crt': '',
                         'key': ''
                     })
                 else:
+                    logger.warning('Host %s unauthorized for domain %s.', host, domain)
                     self.set_status(403)
             else:
+                logger.warning('No config matching domain %s found.', domain)
                 self.set_status(404)
         else:
+            logger.warning('Certificate for %s requested by unauthentified host.', domain)
             self.set_status(401)
 
 class ChallengeHandler(tornado.web.RequestHandler):
