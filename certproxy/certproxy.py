@@ -101,7 +101,13 @@ def run():
         )
     elif args.subcommand == 'cert':
         if args.action == 'fetch':
-            client = Client(config)
+            client = Client(
+                server=config.client.server,
+                private_key_file=config.client.private_key_file,
+                certificate_file=config.client.certificate_file,
+                crt_path=config.client.crt_path,
+                subject=config.client.subject,
+            )
             client.requestcert(args.domain)
     elif args.subcommand == 'auth':
         caconfig = {
@@ -127,7 +133,13 @@ def run():
             ca = CA(**caconfig)
             ca.revoke_host(args.host)
         elif args.action == 'request':
-            client = Client(config)
+            client = Client(
+                server=config.client.server,
+                private_key_file=config.client.private_key_file,
+                certificate_file=config.client.certificate_file,
+                crt_path=config.client.crt_path,
+                subject=config.client.subject,
+            )
             client.requestauth()
         elif args.action == 'clean':
             ca = CA(**caconfig)
