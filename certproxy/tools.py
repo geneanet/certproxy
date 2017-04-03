@@ -258,7 +258,21 @@ def x509_cert_fingerprint(cert):
     return urlsafe_b64encode(cert.fingerprint(hashes.SHA256())).decode()
 
 def dump_pem(key_or_crt):
-    return key_or_crt.public_bytes(encoding=serialization.Encoding.PEM)
+    if isinstance(key_or_crt, rsa.RSAPrivateKey):
+        return key_or_crt.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+    elif isinstance(key_or_crt, rsa.RSAPublicKey):
+        return key_or_crt.public_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PublicFormat.PKCS1
+        )
+    else:
+        return key_or_crt.public_bytes(
+            encoding=serialization.Encoding.PEM
+        )
 
 def print_array(rows, headers=None):
     if not headers:
