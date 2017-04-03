@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import tornado.ioloop
-import tornado.web
-import tornado.httpserver
+from gevent import pywsgi, monkey; monkey.patch_all()
+from bottle import Bottle, request, response, ServerAdapter
 import os
 import ssl
 from munch import Munch
@@ -19,60 +18,72 @@ import logging
 
 logger = logging.getLogger('certproxy.server')
 
-class JSONHandler(tornado.web.RequestHandler):
-    """Request handler for JSON requests."""
-    def __init__(self, application, request, **kwargs):
-        super().__init__(application, request, **kwargs)
-        self.json_data = Munch()
+class SSLServerAdapter(ServerAdapter):
+    def run(self, handler):
+        context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+        context.load_cert_chain(handler.config.server.ca.certificate, handler.config.server.ca.private_key)
+        context.load_verify_locations(cafile=handler.config.server.ca.certificate)
+        context.load_verify_locations(cafile=handler.config.server.ca.crl)
+        context.options &= ssl.OP_NO_SSLv3
+        context.options &= ssl.OP_NO_SSLv2
+        context.verify_flags |= ssl.VERIFY_CRL_CHECK_LEAF
+        context.verify_mode = ssl.CERT_OPTIONAL
+        self.options['ssl_context'] = context
 
-    def prepare(self):
-        if 'Content-Type' in self.request.headers and self.request.headers['Content-Type'] == 'application/json':
-            if self.request.body:
-                try:
-                    self.json_data = Munch.fromDict(tornado.escape.json_decode(self.request.body))
-                except ValueError as e:
-                    logger.exception(e)
-                    self.send_error(400) # Bad Request
-        elif not 'Content-Type' in self.request.headers:
-            self.json_data = None
-        else:
-            self.send_error(415) # Bad Media Type
+        address = (self.host, self.port)
+        server = pywsgi.WSGIServer(
+            ('0.0.0.0', handler.config.server.socket.port),
+            handler,
+            ssl_context=context,
+            handler_class=RequestHandler,
+            log=logger,
+            error_log=logger,
+        )
+        server.serve_forever()
 
-class AuthorizeHandler(JSONHandler):
-    def __init__(self, application, request, server):
-        super().__init__(application, request)
-        self.server = server
+class RequestHandler(pywsgi.WSGIHandler):
+    def get_environ(self):
+        env = super(RequestHandler, self).get_environ()
+        env['ssl_certificate'] = self.socket.getpeercert(binary_form=True)
+        return env
 
-    def post(self):
-        csr = x509.load_pem_x509_csr(data=self.json_data.csr.encode(), backend=default_backend())
+class Server(Bottle):
+    def __init__(self, config, acmeproxy):
+        super(Server, self).__init__()
+        self.config = config
+        self.acmeproxy = acmeproxy
+
+        self.route('/authorize', callback=self.HandleAuth)
+        self.route('/cert/<domain>', callback=self.HandleCert)
+        self.route('/.well-known/acme-challenge/<token>', callback=self.HandleChallenge)
+
+    def HandleAuth(self):
+        request_data = Munch(request.json)
+
+        csr = x509.load_pem_x509_csr(data=request_data.csr.encode(), backend=default_backend())
         host = csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
-        csr_file = os.path.join(self.server.config.server.ca.csr_path, "%s.csr" % (host))
-        crt_file = os.path.join(self.server.config.server.ca.crt_path, "%s.crt" % (host))
+        csr_file = os.path.join(self.config.server.ca.csr_path, "%s.csr" % (host))
+        crt_file = os.path.join(self.config.server.ca.crt_path, "%s.crt" % (host))
 
         if os.path.isfile(crt_file):
             # Return CRT
             with open(crt_file, 'r') as f:
                 crt = f.read()
-            self.write({
+            return {
                 'status': 'authorized',
                 'crt': crt
-            })
+            }
         else:
             # Save CSR
             with open(csr_file, 'w') as f:
                 f.write(csr.public_bytes(serialization.Encoding.PEM).decode())
-            self.set_status(202)
-            self.write({
+            response.status = 202
+            return {
                 'status': 'pending'
-            })
+            }
 
-class GetCertHandler(JSONHandler):
-    def __init__(self, application, request, server):
-        super().__init__(application, request)
-        self.server = server
-
-    def get(self, domain):
-        rawcert = self.request.get_ssl_certificate(binary_form=True)
+    def HandleCert(self, domain):
+        rawcert = request.environ['ssl_certificate']
 
         if rawcert:
             cert = load_certificate(cert_bytes=rawcert)
@@ -80,70 +91,38 @@ class GetCertHandler(JSONHandler):
 
             logger.debug('Certificate for %s requested by host %s.', domain, host)
 
-            match = match_regexes(domain, self.server.config.server.certificates.keys())
+            match = match_regexes(domain, self.config.server.certificates.keys())
 
             if match:
-                certconfig = self.server.config.server.certificates[match.re.pattern]
+                certconfig = self.config.server.certificates[match.re.pattern]
 
                 if host in certconfig.allowed_hosts:
                     logger.debug('Fetching certificate for domain %s', domain)
                     altname = [match.expand(name) for name in certconfig.altname]
-                    (key, crt, chain) = self.server.acmeproxy.get_cert(
+                    (key, crt, chain) = self.acmeproxy.get_cert(
                         domain,
                         altname,
                         certconfig.rekey if 'rekey' in certconfig else False,
                         certconfig.renew_margin if 'renew_margin' in certconfig else 30,
                     )
-                    self.write({
+                    return {
                         'crt': crt,
                         'key': key,
                         'chain': chain
-                    })
+                    }
                 else:
                     logger.warning('Host %s unauthorized for domain %s.', host, domain)
-                    self.set_status(403)
+                    response.status = 403
             else:
                 logger.warning('No config matching domain %s found.', domain)
-                self.set_status(404)
+                response.status = 404
         else:
             logger.warning('Certificate for %s requested by unauthentified host.', domain)
-            self.set_status(401)
+            response.status = 401
 
-class ChallengeHandler(tornado.web.RequestHandler):
-    def __init__(self, application, request, acmeproxy):
-        super().__init__(application, request)
-        self.acmeproxy = acmeproxy
-
-    def get(self, token):
+    def HandleChallenge(self, token):
         keyauth = self.acmeproxy.get_challenge_keyauth(token)
         if keyauth:
-            self.write(keyauth)
+            return keyauth
         else:
-            self.set_status(404)
-
-class Server:
-    def __init__(self, config, acmeproxy):
-        self.config = config # TODO : Check config keys
-        self.acmeproxy = acmeproxy
-
-    def run(self):
-        # Start the app
-        app = tornado.web.Application([
-            (r"/authorize", AuthorizeHandler, dict(server=self)),
-            (r"/cert/(?P<domain>[a-zA-Z0-9-_.]+)", GetCertHandler, dict(server=self)),
-            (r"/.well-known/acme-challenge/(?P<token>.+)", ChallengeHandler, dict(acmeproxy=self.acmeproxy)),
-        ])
-
-        context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-        context.load_cert_chain(self.config.server.ca.certificate, self.config.server.ca.private_key)
-        context.load_verify_locations(cafile=self.config.server.ca.certificate)
-        context.load_verify_locations(cafile=self.config.server.ca.crl)
-        context.options &= ssl.OP_NO_SSLv3
-        context.options &= ssl.OP_NO_SSLv2
-        context.verify_flags |= ssl.VERIFY_CRL_CHECK_LEAF
-        context.verify_mode = ssl.CERT_OPTIONAL
-
-        logger.info('Starting web server on port %d.', self.config.server.socket.port)
-        server = tornado.httpserver.HTTPServer(app, ssl_options=context)
-        server.listen(self.config.server.socket.port)
-        tornado.ioloop.IOLoop.current().start()
+            response.status = 404

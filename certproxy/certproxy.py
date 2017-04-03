@@ -3,7 +3,7 @@ import logging
 import argparse
 import yaml
 from munch import Munch
-from .server import Server
+from .server import Server, SSLServerAdapter
 from .client import Client
 from .tools import print_array
 from .ca import CA
@@ -11,6 +11,8 @@ from .acmeproxy import ACMEProxy
 
 rootlogger = logging.getLogger()
 logger = logging.getLogger('certproxy')
+
+logging.getLogger('acme.client').setLevel(logging.INFO)
 
 def run():
     """ Run certproxy """
@@ -82,7 +84,7 @@ def run():
             registration_file=config.server.acme.registration_file
         )
         server = Server(config, acmeproxy)
-        server.run()
+        server.run(server=SSLServerAdapter)
     elif args.subcommand == 'cert':
         if args.action == 'fetch':
             client = Client(config)
