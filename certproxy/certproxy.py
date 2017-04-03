@@ -39,11 +39,12 @@ def run():
     parser_auth_revoke.add_argument('host', help='Host to revoke')
     subp_auth.add_parser('clean', help='Clean revoked hosts certificates and unaccepted requests')
 
-    parser_cert = subp.add_parser('cert', help='Ask server for certificates')
-    subp_cert = parser_cert.add_subparsers(dest='action', title='Actions', help="Action")
-    subp_cert.required = True
-    parser_cert_fetch = subp_cert.add_parser('fetch', help='Fetch a key/certificate pair')
-    parser_cert_fetch.add_argument('domain', help='Domain')
+    parser_client = subp.add_parser('client', help='Act as a client to a CertProxy server')
+    subp_client = parser_client.add_subparsers(dest='action', title='Actions', help="Action")
+    subp_client.required = True
+    parser_client_fetch = subp_client.add_parser('fetch', help='Fetch a certificate/key pair')
+    parser_client_fetch.add_argument('domain', help='Domain')
+    parser_client_fetch.add_argument('--force', default=False, action='store_true', help='Overwrite the local certificate if it is still valid')
 
     args = parser.parse_args()
 
@@ -99,7 +100,7 @@ def run():
             host=config.server.listen.host,
             port=config.server.listen.port,
         )
-    elif args.subcommand == 'cert':
+    elif args.subcommand == 'client':
         if args.action == 'fetch':
             client = Client(
                 server=config.client.server,
@@ -108,7 +109,7 @@ def run():
                 crt_path=config.client.crt_path,
                 subject=config.client.subject,
             )
-            client.requestcert(args.domain)
+            client.requestcert(args.domain, force=args.force)
     elif args.subcommand == 'auth':
         caconfig = {
             'private_key_file': config.server.ca.private_key_file,
