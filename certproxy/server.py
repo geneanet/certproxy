@@ -21,9 +21,9 @@ logger = logging.getLogger('certproxy.server')
 class SSLServerAdapter(ServerAdapter):
     def run(self, handler):
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-        context.load_cert_chain(handler.config.server.ca.certificate, handler.config.server.ca.private_key)
-        context.load_verify_locations(cafile=handler.config.server.ca.certificate)
-        context.load_verify_locations(cafile=handler.config.server.ca.crl)
+        context.load_cert_chain(handler.certificate_file, handler.private_key_file)
+        context.load_verify_locations(cafile=handler.certificate_file)
+        context.load_verify_locations(cafile=handler.crl_file)
         context.options &= ssl.OP_NO_SSLv3
         context.options &= ssl.OP_NO_SSLv2
         context.verify_flags |= ssl.VERIFY_CRL_CHECK_LEAF
@@ -47,10 +47,15 @@ class RequestHandler(pywsgi.WSGIHandler):
         return env
 
 class Server(Bottle):
-    def __init__(self, config, acmeproxy):
+    def __init__(self, acmeproxy, csr_path, crt_path, certificates_config, private_key_file, certificate_file, crl_file):
         super(Server, self).__init__()
-        self.config = config
         self.acmeproxy = acmeproxy
+        self.csr_path = csr_path
+        self.crt_path = crt_path
+        self.certificates_config = certificates_config
+        self.private_key_file = private_key_file
+        self.certificate_file = certificate_file
+        self.crl_file = crl_file
 
         self.route('/authorize', callback=self.HandleAuth)
         self.route('/cert/<domain>', callback=self.HandleCert)
@@ -61,8 +66,8 @@ class Server(Bottle):
 
         csr = x509.load_pem_x509_csr(data=request_data.csr.encode(), backend=default_backend())
         host = csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
-        csr_file = os.path.join(self.config.server.ca.csr_path, "%s.csr" % (host))
-        crt_file = os.path.join(self.config.server.ca.crt_path, "%s.crt" % (host))
+        csr_file = os.path.join(self.csr_path, "%s.csr" % (host))
+        crt_file = os.path.join(self.crt_path, "%s.crt" % (host))
 
         if os.path.isfile(crt_file):
             # Return CRT
@@ -90,10 +95,10 @@ class Server(Bottle):
 
             logger.debug('Certificate for %s requested by host %s.', domain, host)
 
-            match = match_regexes(domain, self.config.server.certificates.keys())
+            match = match_regexes(domain, self.certificates_config.keys())
 
             if match:
-                certconfig = self.config.server.certificates[match.re.pattern]
+                certconfig = self.certificates_config[match.re.pattern]
 
                 if host in certconfig.allowed_hosts:
                     logger.debug('Fetching certificate for domain %s', domain)

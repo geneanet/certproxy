@@ -84,7 +84,15 @@ def run():
             email=config.server.acme.email,
             registration_file=config.server.acme.registration_file
         )
-        server = Server(config, acmeproxy)
+        server = Server(
+            acmeproxy=acmeproxy,
+            csr_path=config.server.ca.csr_path,
+            crt_path=config.server.ca.crt_path,
+            certificates_config=config.server.certificates,
+            private_key_file=config.server.ca.private_key_file,
+            certificate_file=config.server.ca.certificate_file,
+            crl_file=config.server.ca.crl_file,
+        )
         server.run(
             server=SSLServerAdapter,
             quiet=True,
@@ -96,8 +104,16 @@ def run():
             client = Client(config)
             client.requestcert(args.domain)
     elif args.subcommand == 'auth':
+        caconfig = {
+            'private_key_file': config.server.ca.private_key_file,
+            'certificate_file': config.server.ca.certificate_file,
+            'crl_file': config.server.ca.crl_file,
+            'crt_path': config.server.ca.crt_path,
+            'csr_path': config.server.ca.csr_path,
+            'subject': config.server.ca.subject,
+        }
         if args.action == 'list':
-            ca = CA(config)
+            ca = CA(**caconfig)
             hosts = ca.list_hosts()
             table = []
             headers = ['Host', 'Status', 'Key', 'Certificate']
@@ -105,14 +121,14 @@ def run():
                 table.append([host, hostinfos['status'], hostinfos['key_fingerprint'], hostinfos['cert_fingerprint']])
             print_array(table, headers)
         elif args.action == 'accept':
-            ca = CA(config)
+            ca = CA(**caconfig)
             ca.authorize_host(args.host)
         elif args.action == 'revoke':
-            ca = CA(config)
+            ca = CA(**caconfig)
             ca.revoke_host(args.host)
         elif args.action == 'request':
             client = Client(config)
             client.requestauth()
         elif args.action == 'clean':
-            ca = CA(config)
+            ca = CA(**caconfig)
             ca.clean_hosts()
