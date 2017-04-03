@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes
 
-from .tools import load_certificate, load_or_create_privatekey, rsa_key_fingerprint
+from .tools import load_certificate, load_or_create_privatekey, rsa_key_fingerprint, writefile
 
 import logging
 
@@ -76,4 +76,8 @@ class Client:
             validate_cert=False)
         client = tornado.httpclient.HTTPClient()
         response = client.fetch(request)
-        json_data = Munch.fromDict(json.loads(response.body.decode()))
+        data = Munch.fromDict(json.loads(response.body.decode()))
+
+        writefile(os.path.join(self.config.client.crt_path, '{}.crt'.format(domain)), data.crt)
+        writefile(os.path.join(self.config.client.crt_path, '{}-chain.crt'.format(domain)), data.chain)
+        writefile(os.path.join(self.config.client.crt_path, '{}.key'.format(domain)), data.key)
