@@ -85,7 +85,12 @@ def run():
             registration_file=config.server.acme.registration_file
         )
         server = Server(config, acmeproxy)
-        server.run(server=SSLServerAdapter)
+        server.run(
+            server=SSLServerAdapter,
+            quiet=True,
+            host=config.server.listen.host,
+            port=config.server.listen.port,
+        )
     elif args.subcommand == 'cert':
         if args.action == 'fetch':
             client = Client(config)
