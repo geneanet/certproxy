@@ -59,7 +59,7 @@ class Server(Bottle):
         self.certificate_file = certificate_file
         self.crl_file = crl_file
 
-        self.route('/authorize', callback=self.HandleAuth)
+        self.route('/authorize', callback=self.HandleAuth, method='POST')
         self.route('/cert/<domain>', callback=self.HandleCert)
         self.route('/.well-known/acme-challenge/<token>', callback=self.HandleChallenge)
 
