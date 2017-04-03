@@ -106,9 +106,9 @@ class Server(Bottle):
                         certconfig.renew_margin if 'renew_margin' in certconfig else 30,
                     )
                     return {
-                        'crt': crt,
-                        'key': key,
-                        'chain': chain
+                        'crt': crt.decode(),
+                        'key': key.decode(),
+                        'chain': chain.decode()
                     }
                 else:
                     logger.warning('Host %s unauthorized for domain %s.', host, domain)

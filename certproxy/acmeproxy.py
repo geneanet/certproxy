@@ -172,7 +172,7 @@ class ACMEProxy:
 
         # Dump to PEM
         crt_pem = crypto.dump_certificate(crypto.FILETYPE_PEM, crt.body)
-        chain_pem = '\n'.join([crypto.dump_certificate(crypto.FILETYPE_PEM, link) for link in chain])
+        chain_pem = '\n'.join([crypto.dump_certificate(crypto.FILETYPE_PEM, link).decode() for link in chain]).encode()
 
         return (crt_pem, chain_pem)
 
