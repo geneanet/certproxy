@@ -1,4 +1,3 @@
-from gevent import monkey; monkey.patch_all()
 import acme
 import acme.client
 import acme.challenges
@@ -101,7 +100,7 @@ class ACMEProxy:
 
     def _gc_challenge_keyauth(self):
         """ Garbage collect expired challenges """
-        for token, challenge in self.challenges:
+        for token, challenge in self.challenges.items():
             if challenge.expiration < datetime.utcnow():
                 logger.debug("Deleting expired key authorization for token %s.", token)
                 del self.challenges[token]

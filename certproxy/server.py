@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from gevent import pywsgi, monkey; monkey.patch_all()
+from gevent import pywsgi
 from bottle import Bottle, request, response, ServerAdapter
 import os
 import ssl
