@@ -217,6 +217,7 @@ class ACMEProxy:
             # If the certificate is valid and before renew period
             if crt.not_valid_before < datetime.utcnow() and crt.not_valid_after > datetime.utcnow() + timedelta(days=renew_margin):
                 # Return the cert and its key
+                logger.debug('Serving certificate from cache for %s', domain)
                 return (
                     dump_pem(key),
                     dump_pem(crt),
@@ -230,11 +231,11 @@ class ACMEProxy:
         # If no private key has been loaded or rekey is requested
         if not key or rekey:
             # generate a new key
-            logger.debug('Creating a new key into %s', keyfile)
+            logger.debug('Generating a new key into %s', keyfile)
             key = create_privatekey(keyfile)
 
         # Request a new cert
-        logger.debug('Requesting new certificate for %s', domain)
+        logger.debug('Requesting new certificate for %s from the CA', domain)
         (crt_pem, chain_pem) = self._request_new_cert(domain, keyfile, altname)
         key_pem = dump_pem(key)
 
