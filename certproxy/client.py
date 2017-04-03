@@ -70,7 +70,7 @@ class Client:
                 f.write(data.crt)
             print("Client authorized.")
 
-    def requestcert(self, domain, force=False, renew_margin=30):
+    def requestcert(self, domain, force=False, renew_margin=30, force_renew=False):
         certificate_file = os.path.join(self.crt_path, '{}.crt'.format(domain))
         chain_file = os.path.join(self.crt_path, '{}-chain.crt'.format(domain))
         key_file = os.path.join(self.crt_path, '{}.key'.format(domain))
@@ -134,7 +134,8 @@ class Client:
             response = requests.get(
                 url=self.server + '/cert/' + domain,
                 cert=(self.certificate_file, self.private_key_file),
-                verify=False
+                verify=False,
+                params={'force_renew': 'true' if force_renew else 'false'}
             )
             data = Munch(response.json())
 

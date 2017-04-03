@@ -45,6 +45,7 @@ def run():
     parser_client_fetch = subp_client.add_parser('fetch', help='Fetch a certificate/key pair')
     parser_client_fetch.add_argument('domain', help='Domain')
     parser_client_fetch.add_argument('--force', default=False, action='store_true', help='Overwrite the local certificate if it is still valid')
+    parser_client_fetch.add_argument('--force-renew', default=False, action='store_true', help='Force the renewal of the certificate')
 
     args = parser.parse_args()
 
@@ -109,7 +110,7 @@ def run():
                 crt_path=config.client.crt_path,
                 subject=config.client.subject,
             )
-            client.requestcert(args.domain, force=args.force)
+            client.requestcert(args.domain, force=args.force, force_renew=args.force_renew)
     elif args.subcommand == 'auth':
         caconfig = {
             'private_key_file': config.server.ca.private_key_file,
