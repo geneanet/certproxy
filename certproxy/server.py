@@ -30,6 +30,8 @@ class SSLServerAdapter(ServerAdapter):
         context.verify_mode = ssl.CERT_OPTIONAL
         self.options['ssl_context'] = context
 
+        logger.info('Starting server on host %s port %d.', self.host, self.port)
+
         server = pywsgi.WSGIServer(
             (self.host, self.port),
             handler,
