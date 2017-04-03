@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import tornado.httpclient
+import requests
 import os
 import socket
-import json
 from munch import Munch
 
 from cryptography import x509
@@ -18,6 +17,7 @@ from .tools import load_certificate, load_or_create_privatekey, rsa_key_fingerpr
 import logging
 
 logger = logging.getLogger('certproxy.client')
+requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
 class Client:
     def __init__(self, config):
@@ -47,36 +47,30 @@ class Client:
         )
 
         # Ask for signature
-        body = json.dumps({
+        body = {
             'csr': csr.public_bytes(serialization.Encoding.PEM).decode()
-        })
-        request = tornado.httpclient.HTTPRequest(
-            url = self.config.client.server + '/authorize',
-            method = "POST",
-            body = body,
-            headers = { 'Content-Type': 'application/json' },
-            validate_cert = False)
-        client = tornado.httpclient.HTTPClient()
-        response = client.fetch(request)
-        json_data = Munch.fromDict(json.loads(response.body.decode()))
+        }
+        response = requests.post(
+            url=self.config.client.server + '/authorize',
+            json=body,
+            verify=False
+        )
+        data = Munch(response.json())
 
-        if json_data.status == 'pending':
+        if data.status == 'pending':
             print("Authorization requested (key fingerprint: %s)." % rsa_key_fingerprint(self.pkey.public_key()))
-        elif json_data.status == 'authorized':
+        elif data.status == 'authorized':
             with open(self.config.client.certificate, 'w') as f:
-                f.write(json_data.crt)
+                f.write(data.crt)
             print("Client authorized.")
 
     def requestcert(self, domain):
-        request = tornado.httpclient.HTTPRequest(
+        response = requests.get(
             url=self.config.client.server + '/cert/' + domain,
-            method="GET",
-            client_key=self.config.client.private_key,
-            client_cert=self.config.client.certificate,
-            validate_cert=False)
-        client = tornado.httpclient.HTTPClient()
-        response = client.fetch(request)
-        data = Munch.fromDict(json.loads(response.body.decode()))
+            cert=(self.config.client.certificate, self.config.client.private_key),
+            verify=False
+        )
+        data = Munch(response.json())
 
         writefile(os.path.join(self.config.client.crt_path, '{}.crt'.format(domain)), data.crt)
         writefile(os.path.join(self.config.client.crt_path, '{}-chain.crt'.format(domain)), data.chain)
