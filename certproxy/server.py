@@ -110,7 +110,7 @@ class Server(Bottle):
                         altname,
                         certconfig.rekey if 'rekey' in certconfig else False,
                         certconfig.renew_margin if 'renew_margin' in certconfig else 30,
-                        ('force_renew' in request.query and request.query['force_renew'] == 'true')
+                        ('force_renew' in request.query and request.query['force_renew'] == 'true')  # pylint: disable=unsupported-membership-test,unsubscriptable-object
                     )
                     return {
                         'crt': crt.decode(),

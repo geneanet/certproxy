@@ -74,7 +74,7 @@ def update_crl(crl_file, revoked_certs, ca_crt, pkey):
     )
 
     with open(crl_file, 'wb') as f:
-        f.write(crl.public_bytes(
+        f.write(crl.public_bytes(  # pylint: disable=no-member
             encoding=serialization.Encoding.PEM,
         ))
 
@@ -156,7 +156,7 @@ def sign_certificate_request(csr_file, crt_file, ca_crt, ca_pkey):
     ).public_key(
         csr.public_key()
     ).serial_number(
-        uuid.uuid4().int # pylint: disable=E1101
+        uuid.uuid4().int # pylint: disable=no-member
     ).not_valid_before(
         datetime.datetime.utcnow()
     ).not_valid_after(
@@ -206,7 +206,7 @@ def load_or_create_ca_certificate(crt_file, subject, pkey):
         ).public_key(
             pkey.public_key()
         ).serial_number(
-            uuid.uuid4().int # pylint: disable=E1101
+            uuid.uuid4().int # pylint: disable=no-member
         ).not_valid_before(
             datetime.datetime.utcnow()
         ).not_valid_after(
