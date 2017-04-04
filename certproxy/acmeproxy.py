@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import acme
 import acme.client
 import acme.challenges
