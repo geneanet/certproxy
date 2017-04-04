@@ -39,10 +39,13 @@ class Client:
     def requestauth(self):
         # Create a CSR
         subject_attrs = []
+        cn_already_set = False
         for attr in self.subject:
-            if attr.oid != NameOID.COMMON_NAME:
-                subject_attrs.append(attr)
-        subject_attrs.append(x509.NameAttribute(NameOID.COMMON_NAME, socket.getfqdn()))
+            if attr.oid == NameOID.COMMON_NAME:
+                cn_already_set = True
+            subject_attrs.append(attr)
+        if not cn_already_set:
+            subject_attrs.append(x509.NameAttribute(NameOID.COMMON_NAME, socket.getfqdn()))
         subject = x509.Name(subject_attrs)
 
         csr = x509.CertificateSigningRequestBuilder().subject_name(
