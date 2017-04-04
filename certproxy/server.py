@@ -17,7 +17,9 @@ import logging
 
 logger = logging.getLogger('certproxy.server')
 
+
 class SSLServerAdapter(ServerAdapter):
+
     def run(self, handler):
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         context.load_cert_chain(handler.certificate_file, handler.private_key_file)
@@ -41,13 +43,17 @@ class SSLServerAdapter(ServerAdapter):
         )
         server.serve_forever()
 
+
 class RequestHandler(pywsgi.WSGIHandler):
+
     def get_environ(self):
         env = super(RequestHandler, self).get_environ()
         env['ssl_certificate'] = self.socket.getpeercert(binary_form=True)
         return env
 
+
 class Server(Bottle):
+
     def __init__(self, acmeproxy, csr_path, crt_path, certificates_config, private_key_file, certificate_file, crl_file):
         super(Server, self).__init__()
         self.acmeproxy = acmeproxy

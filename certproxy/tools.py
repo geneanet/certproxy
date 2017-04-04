@@ -12,6 +12,7 @@ import datetime
 from base64 import urlsafe_b64encode
 import re
 
+
 def load_or_create_crl(crl_file, ca_crt, pkey):
     if os.path.isfile(crl_file):
         with open(crl_file, 'rb') as f:
@@ -25,7 +26,7 @@ def load_or_create_crl(crl_file, ca_crt, pkey):
         ).last_update(
             datetime.datetime.utcnow()
         ).next_update(
-            datetime.datetime.utcnow() + datetime.timedelta(days=365*10)
+            datetime.datetime.utcnow() + datetime.timedelta(days=365 * 10)
         ).sign(
             private_key=pkey,
             algorithm=hashes.SHA256(),
@@ -37,6 +38,7 @@ def load_or_create_crl(crl_file, ca_crt, pkey):
             ))
 
     return crl
+
 
 def update_crl(crl_file, revoked_certs, ca_crt, pkey):
     with open(crl_file, 'rb') as f:
@@ -50,7 +52,7 @@ def update_crl(crl_file, revoked_certs, ca_crt, pkey):
     ).last_update(
         datetime.datetime.utcnow()
     ).next_update(
-        datetime.datetime.utcnow() + datetime.timedelta(days=365*10)
+        datetime.datetime.utcnow() + datetime.timedelta(days=365 * 10)
     )
 
     for cert in revoked_certs:
@@ -80,6 +82,7 @@ def update_crl(crl_file, revoked_certs, ca_crt, pkey):
 
     return crl
 
+
 def revoked_cert(cert, crl):
     if cert.issuer != crl.issuer:
         raise Exception('The CRL has not been issued by the certificate issuer.')
@@ -90,6 +93,7 @@ def revoked_cert(cert, crl):
 
     return None
 
+
 def load_privatekey(pkey_file):
     """ Load a private key """
     with open(pkey_file, 'rb') as f:
@@ -99,6 +103,7 @@ def load_privatekey(pkey_file):
             backend=default_backend()
         )
     return pkey
+
 
 def create_privatekey(pkey_file):
     """ Create a private key """
@@ -115,12 +120,14 @@ def create_privatekey(pkey_file):
         ))
     return pkey
 
+
 def load_or_create_privatekey(pkey_file):
     """ Load a private key or create one """
     if os.path.isfile(pkey_file):
         return load_privatekey(pkey_file)
     else:
         return create_privatekey(pkey_file)
+
 
 def load_certificate(cert_file=None, cert_bytes=None):
     if cert_file:
@@ -142,8 +149,10 @@ def load_certificate(cert_file=None, cert_bytes=None):
 
     return cert
 
+
 def get_cn(subject):
     return subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+
 
 def sign_certificate_request(csr_file, crt_file, ca_crt, ca_pkey):
     with open(csr_file, 'rb') as f:
@@ -156,11 +165,11 @@ def sign_certificate_request(csr_file, crt_file, ca_crt, ca_pkey):
     ).public_key(
         csr.public_key()
     ).serial_number(
-        uuid.uuid4().int # pylint: disable=no-member
+        uuid.uuid4().int  # pylint: disable=no-member
     ).not_valid_before(
         datetime.datetime.utcnow()
     ).not_valid_after(
-        datetime.datetime.utcnow() + datetime.timedelta(days=365*10)
+        datetime.datetime.utcnow() + datetime.timedelta(days=365 * 10)
     ).add_extension(
         extension=x509.KeyUsage(
             digital_signature=True, key_encipherment=True, content_commitment=True,
@@ -181,6 +190,7 @@ def sign_certificate_request(csr_file, crt_file, ca_crt, ca_pkey):
 
     with open(crt_file, 'wb') as f:
         f.write(crt.public_bytes(encoding=serialization.Encoding.PEM))
+
 
 def load_or_create_ca_certificate(crt_file, subject, pkey):
     """ Load a CA certificate or create a self-signed one """
@@ -206,11 +216,11 @@ def load_or_create_ca_certificate(crt_file, subject, pkey):
         ).public_key(
             pkey.public_key()
         ).serial_number(
-            uuid.uuid4().int # pylint: disable=no-member
+            uuid.uuid4().int  # pylint: disable=no-member
         ).not_valid_before(
             datetime.datetime.utcnow()
         ).not_valid_after(
-            datetime.datetime.utcnow() + datetime.timedelta(days=365*10)
+            datetime.datetime.utcnow() + datetime.timedelta(days=365 * 10)
         ).add_extension(
             extension=x509.KeyUsage(
                 digital_signature=True, key_encipherment=True, key_cert_sign=True, crl_sign=True, content_commitment=True,
@@ -236,6 +246,7 @@ def load_or_create_ca_certificate(crt_file, subject, pkey):
             f.write(crt.public_bytes(encoding=serialization.Encoding.PEM))
     return crt
 
+
 def rsa_key_fingerprint(key):
     """ Return the SHA256 fingerprint of an RSA public or private key in url safe BASE64 """
     fp = hashes.Hash(algorithm=hashes.SHA256(), backend=default_backend())
@@ -254,8 +265,10 @@ def rsa_key_fingerprint(key):
 
     return urlsafe_b64encode(fp.finalize()).decode()
 
+
 def x509_cert_fingerprint(cert):
     return urlsafe_b64encode(cert.fingerprint(hashes.SHA256())).decode()
+
 
 def dump_pem(key_or_crt):
     if isinstance(key_or_crt, rsa.RSAPrivateKey):
@@ -274,6 +287,7 @@ def dump_pem(key_or_crt):
             encoding=serialization.Encoding.PEM
         )
 
+
 def print_array(rows, headers=None):
     if not headers:
         headers = []
@@ -287,12 +301,14 @@ def print_array(rows, headers=None):
     for row in rows:
         print(' '.join([str(val).ljust(width) for val, width in zip(row, widths)]))
 
+
 def match_regexes(item, regexes):
     for rx in regexes:
         match = re.fullmatch(rx, item)
         if match:
             return match
     return None
+
 
 def readfile(file, binary=False):
     if binary:
@@ -302,6 +318,7 @@ def readfile(file, binary=False):
 
     with open(file, mode) as f:
         return f.read()
+
 
 def writefile(file, data):
     if isinstance(data, bytes):

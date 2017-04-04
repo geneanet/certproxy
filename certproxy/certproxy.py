@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from gevent import monkey; monkey.patch_all()
+from gevent import monkey
+monkey.patch_all()
 import logging
 import argparse
 import yaml
@@ -16,12 +17,13 @@ logger = logging.getLogger('certproxy')
 
 logging.getLogger('acme.client').setLevel(logging.INFO)
 
+
 def run():
     """ Run certproxy """
     # Parse CLI args
     parser = argparse.ArgumentParser()
     parser.add_argument('--logfile', nargs='?', default=None, help='Log file')
-    parser.add_argument('--loglevel', nargs='?', default='info', help='Log level', choices = ['debug', 'info', 'warning', 'error', 'critical', 'fatal'])
+    parser.add_argument('--loglevel', nargs='?', default='info', help='Log level', choices=['debug', 'info', 'warning', 'error', 'critical', 'fatal'])
     parser.add_argument('--logconfig', nargs='?', default=None, help='Logging configuration file (overrides --loglevel and --logfile)')
     parser.add_argument('--config', nargs='?', default='certproxy.yml', help='Config file')
 

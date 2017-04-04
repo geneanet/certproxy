@@ -12,19 +12,21 @@ import logging
 
 logger = logging.getLogger('certproxy.ca')
 
+
 class CA:
-    def __init__(self, private_key_file, certificate_file, crl_file, crt_path, csr_path, subject = None):
+
+    def __init__(self, private_key_file, certificate_file, crl_file, crt_path, csr_path, subject=None):
         self.private_key_file = private_key_file
         self.certificate_file = certificate_file
         self.crl_file = crl_file
         self.crt_path = crt_path
         self.csr_path = csr_path
 
-        self.subject = subject if subject else { 'commonName': 'CertProxy CA' }
+        self.subject = subject if subject else {'commonName': 'CertProxy CA'}
 
         self.pkey = load_or_create_privatekey(self.private_key_file)
         self.cert = load_or_create_ca_certificate(self.certificate_file, self.subject, self.pkey)
-        self.crl  = load_or_create_crl(self.crl_file, self.cert, self.pkey)
+        self.crl = load_or_create_crl(self.crl_file, self.cert, self.pkey)
 
     def list_hosts(self):
         hosts = {}
@@ -67,7 +69,7 @@ class CA:
         self.crl = update_crl(self.crl_file, [crt], self.cert, self.pkey)
 
     def clean_hosts(self):
-        hosts =  self.list_hosts()
+        hosts = self.list_hosts()
 
         for host, hostinfos in hosts.items():
             if hostinfos['status'] in ('pending', 'revoked'):

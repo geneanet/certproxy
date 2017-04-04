@@ -19,8 +19,10 @@ import logging
 logger = logging.getLogger('certproxy.client')
 requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
+
 class Client:
-    def __init__(self, server, private_key_file, certificate_file, crt_path, subject = None):
+
+    def __init__(self, server, private_key_file, certificate_file, crt_path, subject=None):
         self.server = server
         self.private_key_file = private_key_file
         self.certificate_file = certificate_file
