@@ -34,7 +34,6 @@ def run():
     parser_auth = subp.add_parser('auth', help='Manage clients authorizations')
     subp_auth = parser_auth.add_subparsers(dest='action', title='Actions', help="Action")
     subp_auth.required = True
-    subp_auth.add_parser('request', help='Request authorization from the server')
     subp_auth.add_parser('list', help='List pending authorization requests')
     parser_auth_sign = subp_auth.add_parser('accept', help='Accept a pending authorization request')
     parser_auth_sign.add_argument('host', help='Host to authorize')
@@ -45,6 +44,7 @@ def run():
     parser_client = subp.add_parser('client', help='Act as a client to a CertProxy server')
     subp_client = parser_client.add_subparsers(dest='action', title='Actions', help="Action")
     subp_client.required = True
+    subp_client.add_parser('requestauth', help='Request authorization from the server')
     parser_client_fetch = subp_client.add_parser('fetch', help='Fetch a certificate/key pair')
     parser_client_fetch.add_argument('domain', help='Domain')
     parser_client_fetch.add_argument('--force', default=False, action='store_true', help='Overwrite the local certificate if it is still valid')
@@ -105,26 +105,27 @@ def run():
             port=config.server.listen.port,
         )
     elif args.subcommand == 'client':
+        client = Client(
+            server=config.client.server,
+            private_key_file=config.client.private_key_file,
+            certificate_file=config.client.certificate_file,
+            crt_path=config.client.crt_path,
+            subject=config.client.subject,
+        )
         if args.action == 'fetch':
-            client = Client(
-                server=config.client.server,
-                private_key_file=config.client.private_key_file,
-                certificate_file=config.client.certificate_file,
-                crt_path=config.client.crt_path,
-                subject=config.client.subject,
-            )
             client.requestcert(args.domain, force=args.force, force_renew=args.force_renew)
+        elif args.action == 'requestauth':
+            client.requestauth()
     elif args.subcommand == 'auth':
-        caconfig = {
-            'private_key_file': config.server.ca.private_key_file,
-            'certificate_file': config.server.ca.certificate_file,
-            'crl_file': config.server.ca.crl_file,
-            'crt_path': config.server.ca.crt_path,
-            'csr_path': config.server.ca.csr_path,
-            'subject': config.server.ca.subject,
-        }
+        ca = CA(
+            private_key_file=config.server.ca.private_key_file,
+            certificate_file=config.server.ca.certificate_file,
+            crl_file=config.server.ca.crl_file,
+            crt_path=config.server.ca.crt_path,
+            csr_path=config.server.ca.csr_path,
+            subject=config.server.ca.subject,
+        )
         if args.action == 'list':
-            ca = CA(**caconfig)
             hosts = ca.list_hosts()
             table = []
             headers = ['Host', 'Status', 'Key', 'Certificate']
@@ -132,20 +133,8 @@ def run():
                 table.append([host, hostinfos['status'], hostinfos['key_fingerprint'], hostinfos['cert_fingerprint']])
             print_array(table, headers)
         elif args.action == 'accept':
-            ca = CA(**caconfig)
             ca.authorize_host(args.host)
         elif args.action == 'revoke':
-            ca = CA(**caconfig)
             ca.revoke_host(args.host)
-        elif args.action == 'request':
-            client = Client(
-                server=config.client.server,
-                private_key_file=config.client.private_key_file,
-                certificate_file=config.client.certificate_file,
-                crt_path=config.client.crt_path,
-                subject=config.client.subject,
-            )
-            client.requestauth()
         elif args.action == 'clean':
-            ca = CA(**caconfig)
             ca.clean_hosts()
