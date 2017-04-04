@@ -5,12 +5,12 @@ monkey.patch_all()
 import logging
 import argparse
 import yaml
-from munch import Munch
 from .server import Server, SSLServerAdapter
 from .client import Client
 from .tools import print_array
 from .ca import CA
 from .acmeproxy import ACMEProxy
+from .config import Config
 
 rootlogger = logging.getLogger()
 logger = logging.getLogger('certproxy')
@@ -75,9 +75,9 @@ def run():
     # Load config file
     try:
         with open(args.config, 'r') as f:
-            config = Munch.fromDict(yaml.safe_load(f.read()))
+            config = Config(yaml.safe_load(f.read()))
     except Exception as e:
-        logger.error('Unable to read config file (%s)' % e)
+        logger.error('Unable to read config file (%s)', e)
         exit(1)
 
     # Run requested subcommand
@@ -93,7 +93,7 @@ def run():
             acmeproxy=acmeproxy,
             csr_path=config.server.ca.csr_path,
             crt_path=config.server.ca.crt_path,
-            certificates_config=config.server.certificates,
+            certificates_config=config.server.certificates_config,
             private_key_file=config.server.ca.private_key_file,
             certificate_file=config.server.ca.certificate_file,
             crl_file=config.server.ca.crl_file,

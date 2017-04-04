@@ -12,6 +12,22 @@ import datetime
 from base64 import urlsafe_b64encode
 import re
 
+def dict_to_x509_name(data):
+    name_attributes = []
+    attr_name_oid = {
+        'commonName': x509.NameOID.COMMON_NAME,
+        'countryName': x509.NameOID.COUNTRY_NAME,
+        'stateOrProvinceName': x509.NameOID.STATE_OR_PROVINCE_NAME,
+        'locality': x509.NameOID.LOCALITY_NAME,
+        'organizationName': x509.NameOID.ORGANIZATION_NAME,
+        'organizationalUnitName': x509.NameOID.ORGANIZATIONAL_UNIT_NAME,
+    }
+    for key, value in data.items():
+        if not key in attr_name_oid:
+            raise ValueError('{} is not a supported x509 name attribute'.format(key))
+        name_attributes.append(x509.NameAttribute(attr_name_oid[key], value))
+    return x509.Name(name_attributes)
+
 
 def load_or_create_crl(crl_file, ca_crt, pkey):
     if os.path.isfile(crl_file):
@@ -201,14 +217,7 @@ def load_or_create_ca_certificate(crt_file, subject, pkey):
                 backend=default_backend()
             )
     else:
-        subject = issuer = x509.Name([
-            x509.NameAttribute(NameOID.COMMON_NAME, subject.commonName),
-            x509.NameAttribute(NameOID.COUNTRY_NAME, subject.countryName),
-            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, subject.stateOrProvinceName),
-            x509.NameAttribute(NameOID.LOCALITY_NAME, subject.locality),
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME, subject.organizationName),
-            x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, subject.organizationalUnitName),
-        ])
+        issuer = subject
         crt = x509.CertificateBuilder().subject_name(
             subject
         ).issuer_name(

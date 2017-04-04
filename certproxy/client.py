@@ -22,13 +22,13 @@ requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.
 
 class Client:
 
-    def __init__(self, server, private_key_file, certificate_file, crt_path, subject=None):
+    def __init__(self, server, private_key_file, certificate_file, crt_path, subject):
         self.server = server
         self.private_key_file = private_key_file
         self.certificate_file = certificate_file
         self.crt_path = crt_path
 
-        self.subject = subject if subject else {}
+        self.subject = subject
 
         self.pkey = load_or_create_privatekey(private_key_file)
         if os.path.isfile(certificate_file):
@@ -38,16 +38,16 @@ class Client:
 
     def requestauth(self):
         # Create a CSR
-        subject = self.subject
+        subject_attrs = []
+        for attr in self.subject:
+            if attr.oid != NameOID.COMMON_NAME:
+                subject_attrs.append(attr)
+        subject_attrs.append(x509.NameAttribute(NameOID.COMMON_NAME, socket.getfqdn()))
+        subject = x509.Name(subject_attrs)
 
-        csr = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
-            x509.NameAttribute(NameOID.COMMON_NAME, socket.getfqdn()),
-            x509.NameAttribute(NameOID.COUNTRY_NAME, subject.countryName),
-            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, subject.stateOrProvinceName),
-            x509.NameAttribute(NameOID.LOCALITY_NAME, subject.locality),
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME, subject.organizationName),
-            x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, subject.organizationalUnitName),
-        ])).sign(
+        csr = x509.CertificateSigningRequestBuilder().subject_name(
+            subject
+        ).sign(
             private_key=self.pkey,
             algorithm=hashes.SHA256(),
             backend=default_backend()

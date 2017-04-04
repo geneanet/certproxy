@@ -15,14 +15,13 @@ logger = logging.getLogger('certproxy.ca')
 
 class CA:
 
-    def __init__(self, private_key_file, certificate_file, crl_file, crt_path, csr_path, subject=None):
+    def __init__(self, private_key_file, certificate_file, crl_file, crt_path, csr_path, subject):
         self.private_key_file = private_key_file
         self.certificate_file = certificate_file
         self.crl_file = crl_file
         self.crt_path = crt_path
         self.csr_path = csr_path
-
-        self.subject = subject if subject else {'commonName': 'CertProxy CA'}
+        self.subject = subject
 
         self.pkey = load_or_create_privatekey(self.private_key_file)
         self.cert = load_or_create_ca_certificate(self.certificate_file, self.subject, self.pkey)

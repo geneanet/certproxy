@@ -5,13 +5,14 @@ from bottle import Bottle, request, response, ServerAdapter
 import os
 import ssl
 from munch import Munch
+import re
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 
-from .tools import load_certificate, get_cn, match_regexes
+from .tools import load_certificate, get_cn
 
 import logging
 
@@ -102,19 +103,21 @@ class Server(Bottle):
 
             logger.debug('Certificate for %s requested by host %s.', domain, host)
 
-            match = match_regexes(domain, self.certificates_config.keys())
+            match = certconfig = None
+            for certconfig in self.certificates_config:
+                match = re.fullmatch(certconfig.pattern, domain)
+                if match:
+                    break
 
             if match:
-                certconfig = self.certificates_config[match.re.pattern]
-
                 if host in certconfig.allowed_hosts:
                     logger.debug('Fetching certificate for domain %s', domain)
                     altname = [match.expand(name) for name in certconfig.altname]
                     (key, crt, chain) = self.acmeproxy.get_cert(
                         domain,
                         altname,
-                        certconfig.rekey if 'rekey' in certconfig else False,
-                        certconfig.renew_margin if 'renew_margin' in certconfig else 30,
+                        certconfig.rekey,
+                        certconfig.renew_margin,
                         ('force_renew' in request.query and request.query['force_renew'] == 'true')  # pylint: disable=unsupported-membership-test,unsubscriptable-object
                     )
                     return {
