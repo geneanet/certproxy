@@ -2,9 +2,11 @@
 
 import requests
 import os
+import subprocess
 import socket
 from munch import Munch
 from datetime import datetime, timedelta
+import re
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -12,7 +14,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes
 
-from .tools import load_certificate, load_or_create_privatekey, rsa_key_fingerprint, writefile, readfile, load_privatekey
+from .tools import load_certificate, load_or_create_privatekey, rsa_key_fingerprint, writefile, readfile, load_privatekey, impersonation
 
 import logging
 
@@ -22,13 +24,13 @@ requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.
 
 class Client:
 
-    def __init__(self, server, private_key_file, certificate_file, crt_path, subject):
+    def __init__(self, server, private_key_file, certificate_file, crt_path, subject, certificates_config):
         self.server = server
         self.private_key_file = private_key_file
         self.certificate_file = certificate_file
         self.crt_path = crt_path
-
         self.subject = subject
+        self.certificates_config = certificates_config
 
         self.pkey = load_or_create_privatekey(private_key_file)
         if os.path.isfile(certificate_file):
@@ -150,6 +152,90 @@ class Client:
             newcrt = load_certificate(certificate_file)
             logger.info('Certificate for %s fetched (expires %s UTC, renew after %s UTC)', domain, newcrt.not_valid_after, newcrt.not_valid_after - timedelta(days=renew_margin))
 
+            self.execute_actions(domain)
+
             return True
         else:
             return False
+
+    def execute_actions(self, domain):
+        # Find a config matching the domain
+        match = certconfig = None
+        for certconfig in self.certificates_config:
+            match = re.fullmatch(certconfig.pattern, domain)
+            if match:
+                break
+
+        # If we have a matching config
+        if match:
+            logger.debug('Domain %s matches pattern %s', domain, certconfig.pattern)
+
+            groups = match.groups(default='')
+            groups = (domain,) + groups
+
+            certificate_file = os.path.join(self.crt_path, '{}.crt'.format(domain))
+            chain_file = os.path.join(self.crt_path, '{}-chain.crt'.format(domain))
+            key_file = os.path.join(self.crt_path, '{}.key'.format(domain))
+
+            # Execute a command if requested
+            if certconfig.execute:
+                command = certconfig.execute.command.format(*groups, domain=domain, certificate_file=certificate_file, chain_file=chain_file, key_file=key_file)
+                logger.info('Executing command: %s', command)
+                returncode = subprocess.call(
+                    args=command,
+                    shell=True,
+                    preexec_fn=impersonation(user=certconfig.execute.user, group=certconfig.execute.group, workdir=certconfig.execute.workdir),
+                    timeout=certconfig.execute.timeout
+                )
+                logger.debug('Command returned code %d', returncode)
+
+            # Deploy the certificate if requested
+            if certconfig.deploy_crt:
+                path = certconfig.deploy_crt.path.format(*groups, domain=domain)
+                logger.info('Deploying certificate into %s', path)
+                writefile(
+                    path=path,
+                    owner=certconfig.deploy_crt.owner,
+                    group=certconfig.deploy_crt.group,
+                    mode=certconfig.deploy_crt.mode,
+                    data=readfile(certificate_file),
+                )
+
+            # Deploy the private key if requested
+            if certconfig.deploy_key:
+                path = certconfig.deploy_key.path.format(*groups, domain=domain)
+                logger.info('Deploying private key into %s', path)
+                writefile(
+                    path=path,
+                    owner=certconfig.deploy_key.owner,
+                    group=certconfig.deploy_key.group,
+                    mode=certconfig.deploy_key.mode,
+                    data=readfile(key_file),
+                )
+
+            # Deploy the key chain if requested
+            if certconfig.deploy_chain:
+                path = certconfig.deploy_chain.path.format(*groups, domain=domain)
+                logger.info('Deploying chain into %s', path)
+                writefile(
+                    path=path,
+                    owner=certconfig.deploy_chain.owner,
+                    group=certconfig.deploy_chain.group,
+                    mode=certconfig.deploy_chain.mode,
+                    data=readfile(chain_file),
+                )
+
+            # Deploy the full chain (certificate + chain) if requested
+            if certconfig.deploy_full_chain:
+                path = certconfig.deploy_full_chain.path.format(*groups, domain=domain)
+                logger.info('Deploying full chain into %s', path)
+                writefile(
+                    path=path,
+                    owner=certconfig.deploy_full_chain.owner,
+                    group=certconfig.deploy_full_chain.group,
+                    mode=certconfig.deploy_full_chain.mode,
+                    data=readfile(certificate_file) + '\n' + readfile(chain_file),
+                )
+
+        else:
+            logger.debug('No configuration found for domain %s', domain)

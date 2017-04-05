@@ -111,6 +111,7 @@ def run():
             certificate_file=config.client.certificate_file,
             crt_path=config.client.crt_path,
             subject=config.client.subject,
+            certificates_config=config.client.certificates_config
         )
         if args.action == 'fetch':
             client.requestcert(args.domain, force=args.force, force_renew=args.force_renew)

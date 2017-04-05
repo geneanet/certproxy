@@ -51,11 +51,15 @@ class ExecuteConfig(AbstractConfig):
             'command': (str, True),
             'user': (str, False),
             'group': (str, False),
+            'workdir': (str, False),
+            'timeout': (int, False),
         })
 
         self.command = config['command']
         self.user = config['user'] if 'user' in config else None
         self.group = config['group'] if 'group' in config else None
+        self.workdir = config['workdir'] if 'workdir' in config else None
+        self.timeout = config['timeout'] if 'timeout' in config else None
 
 
 class CertClientConfig(AbstractConfig):
