@@ -14,6 +14,21 @@ import re
 import pwd
 import grp
 
+def impersonation(user=None, group=None, workdir=None):
+    def impersonate():
+        """Change user, group and workdir"""
+        if group is not None:
+            os.setgroups([])
+            os.setgid(grp.getgrnam(group).gr_gid)
+
+        if user is not None:
+            os.setuid(pwd.getpwnam(user).pw_uid)
+
+        if workdir is not None:
+            os.chdir(workdir)
+
+    return impersonate
+
 
 def dict_to_x509_name(data):
     name_attributes = []
