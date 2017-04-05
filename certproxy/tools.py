@@ -11,6 +11,9 @@ import uuid
 import datetime
 from base64 import urlsafe_b64encode
 import re
+import pwd
+import grp
+
 
 def dict_to_x509_name(data):
     name_attributes = []
@@ -319,21 +322,38 @@ def match_regexes(item, regexes):
     return None
 
 
-def readfile(file, binary=False):
+def readfile(path, binary=False):
     if binary:
         mode = 'rb'
     else:
         mode = 'r'
 
-    with open(file, mode) as f:
+    with open(path, mode) as f:
         return f.read()
 
 
-def writefile(file, data):
+def writefile(path, data, owner=None, group=None, mode=None):
     if isinstance(data, bytes):
-        mode = 'wb'
+        openmode = 'wb'
     else:
-        mode = 'w'
+        openmode = 'w'
 
-    with open(file, mode) as f:
+    if owner is not None:
+        uid = pwd.getpwnam(owner).pw_uid
+    else:
+        uid = -1
+
+    if group is not None:
+        gid = grp.getgrnam(group).gr_gid
+    else:
+        gid = -1
+
+    with open(path, openmode) as f:
+        os.fchown(
+            fd=f.fileno(),
+            uid=uid,
+            gid=gid
+        )
+        if mode is not None:
+            os.fchmod(f.fileno(), mode)
         return f.write(data)
