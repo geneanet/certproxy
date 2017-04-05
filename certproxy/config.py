@@ -44,14 +44,29 @@ class FileProperties(AbstractConfig):
         self.mode = config['mode'] if 'mode' in config else None
 
 
+class ExecuteConfig(AbstractConfig):
+
+    def __init__(self, config):
+        check_config(config, types={
+            'command': (str, True),
+            'user': (str, False),
+            'group': (str, False),
+        })
+
+        self.command = config['command']
+        self.user = config['user'] if 'user' in config else None
+        self.group = config['group'] if 'group' in config else None
+
+
 class CertClientConfig(AbstractConfig):
 
     def __init__(self, pattern, config):
         check_config(config, types={
-            'execute': (str, False),
+            'execute': (dict, False),
             'deploy_crt': (dict, False),
             'deploy_key': (dict, False),
             'deploy_chain': (dict, False),
+            'deploy_full_chain': (dict, False),
             'priority': (int, False),
         })
 
@@ -61,10 +76,11 @@ class CertClientConfig(AbstractConfig):
             raise ValueError('pattern must be a python compatible regular expression')
 
         self.pattern = pattern
-        self.execute = config['execute'] if 'execute' in config else None
+        self.execute = ExecuteConfig(config['execute']) if 'execute' in config else None
         self.deploy_key = FileProperties(config['deploy_key']) if 'deploy_key' in config else None
         self.deploy_crt = FileProperties(config['deploy_crt']) if 'deploy_crt' in config else None
         self.deploy_chain = FileProperties(config['deploy_chain']) if 'deploy_chain' in config else None
+        self.deploy_full_chain = FileProperties(config['deploy_full_chain']) if 'deploy_full_chain' in config else None
         self.priority = config['priority'] if 'priority' in config else 0
 
 
