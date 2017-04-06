@@ -1,0 +1,63 @@
+server:
+    listen:
+        host: 0.0.0.0
+        port: 8888
+    ca:
+        private_key_file: /var/lib/certproxy/ca/server.key
+        certificate_file: /var/lib/certproxy/ca/server.crt
+        crl_file: /var/lib/certproxy/ca/server.crl
+        csr_path: /var/lib/certproxy/ca/csr
+        crt_path: /var/lib/certproxy/ca/crt
+        subject:
+            commonName: CertProxy CA
+            countryName: FR
+            stateOrProvinceName: Paris
+            locality: Paris
+            organizationName: MyOrg
+            organizationalUnitName: MyUnit
+    acme:
+        #directory_uri: https://acme-v01.api.letsencrypt.org/directory
+        directory_uri: https://acme-staging.api.letsencrypt.org/directory
+        private_key_file: /var/lib/certproxy/acme/acme.key
+        registration_file: /var/lib/certproxy/acme/acme.reg
+        email: email@example.com
+        cache_path: /var/lib/certproxy/acme/crt
+    certificates:
+        example\.(org|net):
+            altname:
+                - www.{domain}
+                - intranet.{domain}
+            allowed_hosts:
+                - webserver1.mycompany.com
+                - webserver2.mycompany.com
+            renew_margin: 30
+
+client:
+    server: https://127.0.0.1:8888
+    private_key_file: /var/lib/certproxy/client/client.key
+    certificate_file: /var/lib/certproxy/client/client.crt
+    crt_path: /var/lib/certproxy/client/crt
+    subject:
+        countryName: FR
+        stateOrProvinceName: Paris
+            locality: Paris
+            organizationName: MyOrg
+            organizationalUnitName: MyUnit
+    certificates:
+        example\.(org|net):
+            deploy_key:
+                path: /etc/mywebserver/{domain}.key
+                owner: www-data
+                group: www-data
+                mode: 0440
+            deploy_full_chain:
+                path: /etc/mywebserver/{domain}-fullchain.crt
+                owner: www-data
+                group: www-data
+                mode: 0440
+            execute:
+                command: service mywebserver reload
+                user: root
+                group: root
+                workdir: /tmp/
+                timeout: 10
