@@ -41,6 +41,20 @@ def run():
     parser_auth_revoke.add_argument('host', help='Host to revoke')
     subp_auth.add_parser('clean', help='Clean revoked hosts certificates and unaccepted requests')
 
+    parser_cert = subp.add_parser('cert', help='Manage cached certificates')
+    subp_cert = parser_cert.add_subparsers(dest='action', title='Actions', help="Action")
+    subp_cert.required = True
+    subp_cert.add_parser('list', help='List cached certificates')
+    parser_cert_renew = subp_cert.add_parser('renew', help='Renew a cached certificate (if needed)')
+    parser_cert_renew.add_argument('domain', help='Domain')
+    parser_cert_renew.add_argument('--force', default=False, action='store_true', help='Force the renewal of the certificate')
+    parser_cert_renewall = subp_cert.add_parser('renewall', help='Renew all cached certificates (if needed)')
+    parser_cert_renewall.add_argument('--force', default=False, action='store_true', help='Force the renewal of the certificates')
+    parser_cert_delete = subp_cert.add_parser('delete', help='Delete a certificate in cache')
+    parser_cert_delete.add_argument('domain', help='Domain')
+    parser_cert_revoke = subp_cert.add_parser('revoke', help='Revoke a certificate')
+    parser_cert_revoke.add_argument('domain', help='Domain')
+
     parser_client = subp.add_parser('client', help='Act as a client to a CertProxy server')
     subp_client = parser_client.add_subparsers(dest='action', title='Actions', help="Action")
     subp_client.required = True
@@ -87,7 +101,7 @@ def run():
         exit(1)
 
     # Run requested subcommand
-    if args.subcommand == 'server':
+    if args.subcommand == 'server' or args.subcommand == 'cert':
         acmeproxy = ACMEProxy(
             private_key_file=config.server.acme.private_key_file,
             directory_uri=config.server.acme.directory_uri,
@@ -95,21 +109,41 @@ def run():
             email=config.server.acme.email,
             registration_file=config.server.acme.registration_file
         )
-        server = Server(
-            acmeproxy=acmeproxy,
-            csr_path=config.server.ca.csr_path,
-            crt_path=config.server.ca.crt_path,
-            certificates_config=config.server.certificates_config,
-            private_key_file=config.server.ca.private_key_file,
-            certificate_file=config.server.ca.certificate_file,
-            crl_file=config.server.ca.crl_file,
-        )
-        server.run(
-            server=SSLServerAdapter,
-            quiet=True,
-            host=config.server.listen.host,
-            port=config.server.listen.port,
-        )
+        if args.subcommand == 'server':
+            server = Server(
+                acmeproxy=acmeproxy,
+                csr_path=config.server.ca.csr_path,
+                crt_path=config.server.ca.crt_path,
+                certificates_config=config.server.certificates_config,
+                private_key_file=config.server.ca.private_key_file,
+                certificate_file=config.server.ca.certificate_file,
+                crl_file=config.server.ca.crl_file,
+            )
+            server.run(
+                server=SSLServerAdapter,
+                quiet=True,
+                host=config.server.listen.host,
+                port=config.server.listen.port,
+            )
+        elif args.subcommand == 'cert':
+            if args.action == 'list':
+                table = []
+                headers = ['CN', 'Expiration', 'Fingerprint']
+                for cert in acmeproxy.list_certificates():
+                    table.append([
+                        cert['cn'],
+                        cert['not_valid_after'],
+                        cert['fingerprint'],
+                    ])
+                print_array(table, headers)
+            elif args.action == 'renew':
+                logger.error('Not yet implemented')  # TODO: Implement that
+            elif args.action == 'renewall':
+                logger.error('Not yet implemented')  # TODO: Implement that
+            elif args.action == 'delete':
+                acmeproxy.delete_certificate(args.domain)
+            elif args.action == 'revoke':
+                logger.error('Not yet implemented')  # TODO: Implement that
     elif args.subcommand == 'client':
         client = Client(
             server=config.client.server,

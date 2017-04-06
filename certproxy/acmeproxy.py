@@ -11,7 +11,7 @@ import os
 from gevent.lock import Semaphore
 from gevent import idle
 
-from .tools import load_certificate, load_privatekey, load_or_create_privatekey, create_privatekey, dump_pem, readfile, writefile
+from .tools import load_certificate, load_privatekey, load_or_create_privatekey, create_privatekey, dump_pem, readfile, writefile, list_certificates
 
 logger = logging.getLogger('certproxy.acmeproxy')
 
@@ -277,3 +277,23 @@ class ACMEProxy:
             # Delete the lock if nobody else is using it
             if not self.locks[domain].locked():
                 del self.locks[domain]
+
+    def list_certificates(self):
+        return list_certificates(self.cache_path)
+
+    def delete_certificate(self, domain):
+        certificate_file = os.path.join(self.cache_path, '{}.crt'.format(domain))
+        chain_file = os.path.join(self.cache_path, '{}-chain.crt'.format(domain))
+        key_file = os.path.join(self.cache_path, '{}.key'.format(domain))
+
+        if os.path.isfile(certificate_file):
+            logger.debug('Deleting %s', certificate_file)
+            os.unlink(certificate_file)
+
+        if os.path.isfile(chain_file):
+            logger.debug('Deleting %s', chain_file)
+            os.unlink(chain_file)
+
+        if os.path.isfile(key_file):
+            logger.debug('Deleting %s', key_file)
+            os.unlink(key_file)
