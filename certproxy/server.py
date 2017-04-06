@@ -5,14 +5,13 @@ from bottle import Bottle, request, response, ServerAdapter
 import os
 import ssl
 from munch import Munch
-import re
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 
-from .tools import load_certificate, get_cn
+from .tools import load_certificate, get_cn, match_cert_config
 
 import logging
 
@@ -103,11 +102,7 @@ class Server(Bottle):
 
             logger.debug('Certificate for %s requested by host %s.', domain, host)
 
-            match = certconfig = None
-            for certconfig in self.certificates_config:
-                match = re.fullmatch(certconfig.pattern, domain)
-                if match:
-                    break
+            (certconfig, match) = match_cert_config(self.certificates_config, domain)
 
             if match:
                 logger.debug('Domain %s matches pattern %s', domain, certconfig.pattern)

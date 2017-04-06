@@ -6,7 +6,6 @@ import subprocess
 import socket
 from munch import Munch
 from datetime import datetime, timedelta
-import re
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -14,7 +13,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes
 
-from .tools import load_certificate, load_or_create_privatekey, rsa_key_fingerprint, writefile, readfile, load_privatekey, impersonation, list_certificates
+from .tools import load_certificate, load_or_create_privatekey, rsa_key_fingerprint, writefile, readfile, load_privatekey, impersonation, list_certificates, match_cert_config
 
 import logging
 
@@ -160,11 +159,7 @@ class Client:
 
     def execute_actions(self, domain):
         # Find a config matching the domain
-        match = certconfig = None
-        for certconfig in self.certificates_config:
-            match = re.fullmatch(certconfig.pattern, domain)
-            if match:
-                break
+        (certconfig, match) = match_cert_config(self.certificates_config, domain)
 
         # If we have a matching config
         if match:

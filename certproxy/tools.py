@@ -18,6 +18,17 @@ import logging
 logger = logging.getLogger('certproxy.tools')
 
 
+def match_cert_config(certificates_config, domain):
+    match = certconfig = None
+    for certconfig in certificates_config:
+        match = re.fullmatch(certconfig.pattern, domain)
+        if match:
+            return certconfig, match
+
+    return (None, None)
+
+
+
 def list_certificates(path):
     certs = []
 
