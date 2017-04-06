@@ -64,7 +64,7 @@ class ACMEProxy:
             # Save registration URI
             writefile(registration_file, regr.uri)
 
-        logger.info('ACME registration verified. %d certificates managed.', len(regr.body.certificates) if regr.body.certificates else 0)
+        logger.info('ACME registration verified.')
 
     def _register(self):
         """ Register a new account at the ACME server """
