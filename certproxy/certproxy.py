@@ -45,10 +45,14 @@ def run():
     subp_client = parser_client.add_subparsers(dest='action', title='Actions', help="Action")
     subp_client.required = True
     subp_client.add_parser('requestauth', help='Request authorization from the server')
+    subp_client.add_parser('list', help='List local certificates')
     parser_client_fetch = subp_client.add_parser('fetch', help='Fetch a certificate/key pair')
     parser_client_fetch.add_argument('domain', help='Domain')
     parser_client_fetch.add_argument('--force', default=False, action='store_true', help='Overwrite the local certificate if it is still valid')
     parser_client_fetch.add_argument('--force-renew', default=False, action='store_true', help='Force the renewal of the certificate')
+    parser_client_fetchall = subp_client.add_parser('fetchall', help='Fetch again all local certificates')
+    parser_client_fetchall.add_argument('--force', default=False, action='store_true', help='Overwrite the local certificates if they are still valid')
+    parser_client_fetchall.add_argument('--force-renew', default=False, action='store_true', help='Force the renewal of the certificates')
 
     args = parser.parse_args()
 
@@ -117,6 +121,19 @@ def run():
             client.requestcert(args.domain, force=args.force, force_renew=args.force_renew)
         elif args.action == 'requestauth':
             client.requestauth()
+        elif args.action == 'list':
+            table = []
+            headers = ['CN', 'Expiration', 'Fingerprint']
+            for cert in client.list_certificates():
+                table.append([
+                    cert['cn'],
+                    cert['not_valid_after'],
+                    cert['fingerprint'],
+                ])
+            print_array(table, headers)
+        elif args.action == 'fetchall':
+            for cert in client.list_certificates():
+                client.requestcert(cert['cn'], force=args.force, force_renew=args.force_renew)
     elif args.subcommand == 'auth':
         ca = CA(
             private_key_file=config.server.ca.private_key_file,

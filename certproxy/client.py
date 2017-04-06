@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes
 
-from .tools import load_certificate, load_or_create_privatekey, rsa_key_fingerprint, writefile, readfile, load_privatekey, impersonation
+from .tools import load_certificate, load_or_create_privatekey, rsa_key_fingerprint, writefile, readfile, load_privatekey, impersonation, list_certificates
 
 import logging
 
@@ -239,3 +239,6 @@ class Client:
 
         else:
             logger.debug('No configuration found for domain %s', domain)
+
+    def list_certificates(self):
+        return list_certificates(self.crt_path)
