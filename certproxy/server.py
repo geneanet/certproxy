@@ -110,9 +110,11 @@ class Server(Bottle):
                     break
 
             if match:
+                logger.debug('Domain %s matches pattern %s', domain, certconfig.pattern)
                 if host in certconfig.allowed_hosts:
                     logger.debug('Fetching certificate for domain %s', domain)
-                    altname = [match.expand(name) for name in certconfig.altname]
+                    groups = (domain,) + match.groups(default='')
+                    altname = [name.format(*groups, domain=domain) for name in certconfig.altname]
                     (key, crt, chain) = self.acmeproxy.get_cert(
                         domain,
                         altname,
