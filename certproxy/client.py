@@ -70,11 +70,11 @@ class Client:
         data = Munch(response.json())
 
         if data.status == 'pending':
-            print("Authorization requested (key fingerprint: %s)." % rsa_key_fingerprint(self.pkey.public_key()))
+            logger.info("Authorization requested (key fingerprint: %s)." % rsa_key_fingerprint(self.pkey.public_key()))
         elif data.status == 'authorized':
             with open(self.certificate_file, 'w') as f:
                 f.write(data.crt)
-            print("Client authorized.")
+            logger.info("Client authorized.")
 
     def requestcert(self, domain, force=False, renew_margin=30, force_renew=False):
         certificate_file = os.path.join(self.crt_path, '{}.crt'.format(domain))
