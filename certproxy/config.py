@@ -96,6 +96,7 @@ class CertServerConfig(AbstractConfig):
             'allowed_hosts': (list, False),
             'rekey': (bool, False),
             'renew_margin': (int, False),
+            'renew_on_fetch': (int, False),
             'priority': (int, False),
         })
 
@@ -108,6 +109,7 @@ class CertServerConfig(AbstractConfig):
         self.priority = config['priority'] if 'priority' in config else 0
         self.rekey = config['rekey'] if 'rekey' in config else False
         self.renew_margin = config['renew_margin'] if 'renew_margin' in config else 30
+        self.renew_on_fetch = config['renew_on_fetch'] if 'renew_on_fetch' in config else True
 
         if 'altname' in config:
             for name in config['altname']:

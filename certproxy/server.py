@@ -116,11 +116,12 @@ class Server(Bottle):
                     groups = (domain,) + match.groups(default='')
                     altname = [name.format(*groups, domain=domain) for name in certconfig.altname]
                     (key, crt, chain) = self.acmeproxy.get_cert(
-                        domain,
-                        altname,
-                        certconfig.rekey,
-                        certconfig.renew_margin,
-                        ('force_renew' in request.query and request.query['force_renew'] == 'true')  # pylint: disable=unsupported-membership-test,unsubscriptable-object
+                        domain=domain,
+                        altname=altname,
+                        rekey=certconfig.rekey,
+                        renew_margin=certconfig.renew_margin,
+                        force_renew=('force_renew' in request.query and request.query['force_renew'] == 'true'),  # pylint: disable=unsupported-membership-test,unsubscriptable-object
+                        auto_renew=certconfig.renew_on_fetch
                     )
                     return {
                         'crt': crt.decode(),

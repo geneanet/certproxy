@@ -183,7 +183,7 @@ class ACMEProxy:
 
         return (crt_pem, chain_pem)
 
-    def get_cert(self, domain, altname=None, rekey=False, renew_margin=30, force_renew=False):
+    def get_cert(self, domain, altname=None, rekey=False, renew_margin=30, force_renew=False, auto_renew=True):
         """ Return a certificate from the local cache or request a new one if necessary """
         crtfile = os.path.join(self.cache_path, '{}.crt'.format(domain))
         chainfile = os.path.join(self.cache_path, '{}-chain.crt'.format(domain))
@@ -228,21 +228,21 @@ class ACMEProxy:
 
             # If the key correspond to the certificate
             if crt and key and crt.public_key().public_numbers() == key.public_key().public_numbers():
-                # If the certificate is valid and before renew period
-                if crt.not_valid_before < datetime.utcnow() and crt.not_valid_after > datetime.utcnow() + timedelta(days=renew_margin):
-                    # If the renew is not forced
-                    if not force_renew:
-                        # Return the cert and its key
-                        logger.debug('Serving certificate from cache for %s', domain)
-                        return (
-                            dump_pem(key),
-                            dump_pem(crt),
-                            chain
-                        )
-                    else:
-                        logger.info('The certificate %s should be renewed (forced)', crtfile)
+                # If the certificate has expired
+                if datetime.utcnow() > crt.not_valid_after:
+                    logger.warning('The certificate for %s has expired', domain)
+
+                # If forced renew OR auto renew during renew period
+                if force_renew or (auto_renew and datetime.utcnow() > crt.not_valid_after - timedelta(days=renew_margin)):
+                    logger.info('The certificate for %s will be renewed' + ' (forced renew)' if force_renew else '', domain)
                 else:
-                    logger.warning('The certificate %s should be renewed', crtfile)
+                    # Return the cert and its key
+                    logger.debug('Serving certificate from cache for %s', domain)
+                    return (
+                        dump_pem(key),
+                        dump_pem(crt),
+                        chain
+                    )
             elif crt and key:
                 logger.error('The key %s does not correspond to the certificate %s', keyfile, crtfile)
 
