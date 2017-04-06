@@ -8,6 +8,8 @@ from OpenSSL import crypto
 from datetime import datetime, timedelta
 import logging
 import os
+from gevent.lock import Semaphore
+from gevent import idle
 
 from .tools import load_certificate, load_privatekey, load_or_create_privatekey, create_privatekey, dump_pem, readfile, writefile
 
@@ -39,6 +41,9 @@ class ACMEProxy:
             registration_uri = readfile(registration_file).strip()
         else:
             registration_uri = None
+
+        # Dict to store domain renewal locks
+        self.locks = {}
 
         # Dict to store the unanswered challenges
         self.challenges = {}
@@ -184,75 +189,91 @@ class ACMEProxy:
         chainfile = os.path.join(self.cache_path, '{}-chain.crt'.format(domain))
         keyfile = os.path.join(self.cache_path, '{}.key'.format(domain))
 
-        # Try to load private key
-        if os.path.isfile(keyfile):
-            try:
-                key = load_privatekey(keyfile)
-            except Exception:
-                logger.error('Unable to load private key %s', keyfile)
-                key = None
-        else:
-            key = None
+        # Acquire a lock to prevent that a domain has several renewal operations at the same time
+        if not domain in self.locks:
+            self.locks[domain] = Semaphore()
 
-        # Try to load certificate
-        if os.path.isfile(crtfile):
-            try:
-                crt = load_certificate(crtfile)
-            except Exception:
-                logger.error('Unable to load certificate %s', crtfile)
-                crt = None
-        else:
-            crt = None
+        self.locks[domain].acquire()
 
-        # Try to load chain
-        if os.path.isfile(chainfile):
-            try:
-                chain = readfile(chainfile, binary=True)
-            except Exception:
-                logger.error('Unable to load certificate chain %s', chainfile)
-                chain = bytes()
-        else:
-            chain = bytes()
-
-        # If the key correspond to the certificate
-        if crt and key and crt.public_key().public_numbers() == key.public_key().public_numbers():
-            # If the certificate is valid and before renew period
-            if crt.not_valid_before < datetime.utcnow() and crt.not_valid_after > datetime.utcnow() + timedelta(days=renew_margin):
-                # If the renew is not forced
-                if not force_renew:
-                    # Return the cert and its key
-                    logger.debug('Serving certificate from cache for %s', domain)
-                    return (
-                        dump_pem(key),
-                        dump_pem(crt),
-                        chain
-                    )
-                else:
-                    logger.info('The certificate %s should be renewed (forced)', crtfile)
+        try:
+            # Try to load private key
+            if os.path.isfile(keyfile):
+                try:
+                    key = load_privatekey(keyfile)
+                except Exception:
+                    logger.error('Unable to load private key %s', keyfile)
+                    key = None
             else:
-                logger.warning('The certificate %s should be renewed', crtfile)
-        elif crt and key:
-            logger.error('The key %s does not correspond to the certificate %s', keyfile, crtfile)
+                key = None
 
-        # If no private key has been loaded or rekey is requested
-        if not key or rekey:
-            # generate a new key
-            logger.debug('Generating a new key into %s', keyfile)
-            key = create_privatekey(keyfile)
+            # Try to load certificate
+            if os.path.isfile(crtfile):
+                try:
+                    crt = load_certificate(crtfile)
+                except Exception:
+                    logger.error('Unable to load certificate %s', crtfile)
+                    crt = None
+            else:
+                crt = None
 
-        # Request a new cert
-        logger.debug('Requesting new certificate for %s from the CA', domain)
-        (crt_pem, chain_pem) = self._request_new_cert(domain, keyfile, altname)
-        key_pem = dump_pem(key)
+            # Try to load chain
+            if os.path.isfile(chainfile):
+                try:
+                    chain = readfile(chainfile, binary=True)
+                except Exception:
+                    logger.error('Unable to load certificate chain %s', chainfile)
+                    chain = bytes()
+            else:
+                chain = bytes()
 
-        # Save to files
-        writefile(keyfile, key_pem)
-        writefile(crtfile, crt_pem)
-        writefile(chainfile, chain_pem)
+            # If the key correspond to the certificate
+            if crt and key and crt.public_key().public_numbers() == key.public_key().public_numbers():
+                # If the certificate is valid and before renew period
+                if crt.not_valid_before < datetime.utcnow() and crt.not_valid_after > datetime.utcnow() + timedelta(days=renew_margin):
+                    # If the renew is not forced
+                    if not force_renew:
+                        # Return the cert and its key
+                        logger.debug('Serving certificate from cache for %s', domain)
+                        return (
+                            dump_pem(key),
+                            dump_pem(crt),
+                            chain
+                        )
+                    else:
+                        logger.info('The certificate %s should be renewed (forced)', crtfile)
+                else:
+                    logger.warning('The certificate %s should be renewed', crtfile)
+            elif crt and key:
+                logger.error('The key %s does not correspond to the certificate %s', keyfile, crtfile)
 
-        # Return
-        return (
-            key_pem,
-            crt_pem,
-            chain_pem
-        )
+            # If no private key has been loaded or rekey is requested
+            if not key or rekey:
+                # generate a new key
+                logger.debug('Generating a new key into %s', keyfile)
+                key = create_privatekey(keyfile)
+
+            # Request a new cert
+            logger.debug('Requesting new certificate for %s from the CA', domain)
+            (crt_pem, chain_pem) = self._request_new_cert(domain, keyfile, altname)
+            key_pem = dump_pem(key)
+
+            # Save to files
+            writefile(keyfile, key_pem)
+            writefile(crtfile, crt_pem)
+            writefile(chainfile, chain_pem)
+
+            # Return
+            return (
+                key_pem,
+                crt_pem,
+                chain_pem
+            )
+
+        finally:
+            # Release the lock
+            self.locks[domain].release()
+            # Give the other threads the chance to acquire the lock
+            idle()
+            # Delete the lock if nobody else is using it
+            if not self.locks[domain].locked():
+                del self.locks[domain]
