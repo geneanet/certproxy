@@ -242,3 +242,20 @@ class Client:
 
     def list_certificates(self):
         return list_certificates(self.crt_path)
+
+    def delete_certificate(self, domain):
+        certificate_file = os.path.join(self.crt_path, '{}.crt'.format(domain))
+        chain_file = os.path.join(self.crt_path, '{}-chain.crt'.format(domain))
+        key_file = os.path.join(self.crt_path, '{}.key'.format(domain))
+
+        if os.path.isfile(certificate_file):
+            logger.debug('Deleting %s', certificate_file)
+            os.unlink(certificate_file)
+
+        if os.path.isfile(chain_file):
+            logger.debug('Deleting %s', chain_file)
+            os.unlink(chain_file)
+
+        if os.path.isfile(key_file):
+            logger.debug('Deleting %s', key_file)
+            os.unlink(key_file)

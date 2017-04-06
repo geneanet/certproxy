@@ -53,6 +53,8 @@ def run():
     parser_client_fetchall = subp_client.add_parser('fetchall', help='Fetch again all local certificates')
     parser_client_fetchall.add_argument('--force', default=False, action='store_true', help='Overwrite the local certificates if they are still valid')
     parser_client_fetchall.add_argument('--force-renew', default=False, action='store_true', help='Force the renewal of the certificates')
+    parser_client_delete = subp_client.add_parser('delete', help='Delete a local certificate')
+    parser_client_delete.add_argument('domain', help='Domain')
 
     args = parser.parse_args()
 
@@ -134,6 +136,8 @@ def run():
         elif args.action == 'fetchall':
             for cert in client.list_certificates():
                 client.requestcert(cert['cn'], force=args.force, force_renew=args.force_renew)
+        elif args.action == 'delete':
+            client.delete_certificate(args.domain)
     elif args.subcommand == 'auth':
         ca = CA(
             private_key_file=config.server.ca.private_key_file,
