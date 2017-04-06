@@ -13,6 +13,30 @@ from base64 import urlsafe_b64encode
 import re
 import pwd
 import grp
+import logging
+
+logger = logging.getLogger('certproxy.tools')
+
+
+def list_certificates(path):
+    certs = []
+
+    for crt_file in filter(lambda f: f.endswith('.crt') and not f.endswith('-chain.crt') ,os.listdir(path)):
+        try:
+            crt = load_certificate(os.path.join(path, crt_file))
+
+            certs.append({
+                'file': crt_file,
+                'cn': get_cn(crt.subject),
+                'not_valid_before': crt.not_valid_before,
+                'not_valid_after': crt.not_valid_after,
+                'fingerprint': x509_cert_fingerprint(crt),
+                'key_fingerprint': rsa_key_fingerprint(crt.public_key()),
+            })
+        except Exception as e:
+            logger.error('Error while loading certificate %s (%s)', crt_file, e)
+
+    return certs
 
 def impersonation(user=None, group=None, workdir=None):
     def impersonate():
