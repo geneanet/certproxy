@@ -106,11 +106,11 @@ class CertClientConfig(AbstractConfig):
 
             groups = (domain,) + match.groups(default='')
 
-            newconfig.execute.command = self.execute.command.format(*groups, domain=domain, **kwargs)
-            newconfig.deploy_crt.path = self.deploy_crt.path.format(*groups, domain=domain, **kwargs)
-            newconfig.deploy_key.path = self.deploy_key.path.format(*groups, domain=domain, **kwargs)
-            newconfig.deploy_chain.path = self.deploy_chain.path.format(*groups, domain=domain, **kwargs)
-            newconfig.deploy_full_chain.path = self.execute.command.format(*groups, domain=domain, **kwargs)
+            newconfig.execute.command = self.execute.command.format(*groups, domain=domain, **kwargs) if newconfig.execute.command else None
+            newconfig.deploy_crt.path = self.deploy_crt.path.format(*groups, domain=domain, **kwargs) if newconfig.deploy_crt.path else None
+            newconfig.deploy_key.path = self.deploy_key.path.format(*groups, domain=domain, **kwargs) if newconfig.deploy_key.path else None
+            newconfig.deploy_chain.path = self.deploy_chain.path.format(*groups, domain=domain, **kwargs) if newconfig.deploy_chain.path else None
+            newconfig.deploy_full_chain.path = self.execute.command.format(*groups, domain=domain, **kwargs) if newconfig.deploy_full_chain.path else None
 
             return newconfig
 
