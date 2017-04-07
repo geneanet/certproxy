@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes
 
-from .tools import load_certificate, load_or_create_privatekey, rsa_key_fingerprint, writefile, readfile, load_privatekey, impersonation, list_certificates, match_cert_config
+from .tools import load_certificate, load_or_create_privatekey, rsa_key_fingerprint, writefile, readfile, load_privatekey, impersonation, list_certificates
 
 import logging
 
@@ -159,22 +159,19 @@ class Client:
 
     def execute_actions(self, domain):
         # Find a config matching the domain
-        (certconfig, match) = match_cert_config(self.certificates_config, domain)
+        certificate_file = os.path.join(self.crt_path, '{}.crt'.format(domain))
+        chain_file = os.path.join(self.crt_path, '{}-chain.crt'.format(domain))
+        key_file = os.path.join(self.crt_path, '{}.key'.format(domain))
+
+        certconfig = self.certificates_config.match(domain, certificate_file=certificate_file, chain_file=chain_file, key_file=key_file)
 
         # If we have a matching config
-        if match:
+        if certconfig:
             logger.debug('Domain %s matches pattern %s', domain, certconfig.pattern)
-
-            groups = match.groups(default='')
-            groups = (domain,) + groups
-
-            certificate_file = os.path.join(self.crt_path, '{}.crt'.format(domain))
-            chain_file = os.path.join(self.crt_path, '{}-chain.crt'.format(domain))
-            key_file = os.path.join(self.crt_path, '{}.key'.format(domain))
 
             # Execute a command if requested
             if certconfig.execute:
-                command = certconfig.execute.command.format(*groups, domain=domain, certificate_file=certificate_file, chain_file=chain_file, key_file=key_file)
+                command = certconfig.execute.command
                 logger.info('Executing command: %s', command)
                 returncode = subprocess.call(
                     args=command,
@@ -186,7 +183,7 @@ class Client:
 
             # Deploy the certificate if requested
             if certconfig.deploy_crt:
-                path = certconfig.deploy_crt.path.format(*groups, domain=domain)
+                path = certconfig.deploy_crt.path
                 logger.info('Deploying certificate into %s', path)
                 writefile(
                     path=path,
@@ -198,7 +195,7 @@ class Client:
 
             # Deploy the private key if requested
             if certconfig.deploy_key:
-                path = certconfig.deploy_key.path.format(*groups, domain=domain)
+                path = certconfig.deploy_key.path
                 logger.info('Deploying private key into %s', path)
                 writefile(
                     path=path,
@@ -210,7 +207,7 @@ class Client:
 
             # Deploy the key chain if requested
             if certconfig.deploy_chain:
-                path = certconfig.deploy_chain.path.format(*groups, domain=domain)
+                path = certconfig.deploy_chain.path
                 logger.info('Deploying chain into %s', path)
                 writefile(
                     path=path,
@@ -222,7 +219,7 @@ class Client:
 
             # Deploy the full chain (certificate + chain) if requested
             if certconfig.deploy_full_chain:
-                path = certconfig.deploy_full_chain.path.format(*groups, domain=domain)
+                path = certconfig.deploy_full_chain.path
                 logger.info('Deploying full chain into %s', path)
                 writefile(
                     path=path,

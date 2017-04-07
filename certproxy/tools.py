@@ -18,17 +18,6 @@ import logging
 logger = logging.getLogger('certproxy.tools')
 
 
-def match_cert_config(certificates_config, domain):
-    match = certconfig = None
-    for certconfig in certificates_config:
-        match = re.fullmatch(certconfig.pattern, domain)
-        if match:
-            return certconfig, match
-
-    return (None, None)
-
-
-
 def list_certificates(path):
     certs = []
 
@@ -362,14 +351,6 @@ def print_array(rows, headers=None):
 
     for row in rows:
         print(' '.join([str(val).ljust(width) for val, width in zip(row, widths)]))
-
-
-def match_regexes(item, regexes):
-    for rx in regexes:
-        match = re.fullmatch(rx, item)
-        if match:
-            return match
-    return None
 
 
 def readfile(path, binary=False):

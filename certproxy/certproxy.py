@@ -7,7 +7,7 @@ import argparse
 import yaml
 from .server import Server, SSLServerAdapter
 from .client import Client
-from .tools import print_array, match_cert_config
+from .tools import print_array
 from .ca import CA
 from .acmeproxy import ACMEProxy
 from .config import Config

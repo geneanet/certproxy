@@ -11,7 +11,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 
-from .tools import load_certificate, get_cn, match_cert_config
+from .tools import load_certificate, get_cn
 
 import logging
 
@@ -102,17 +102,16 @@ class Server(Bottle):
 
             logger.debug('Certificate for %s requested by host %s.', domain, host)
 
-            (certconfig, match) = match_cert_config(self.certificates_config, domain)
+            certconfig = self.certificates_config.match(domain)
 
-            if match:
+            if certconfig:
                 logger.debug('Domain %s matches pattern %s', domain, certconfig.pattern)
                 if host in certconfig.allowed_hosts:
                     logger.debug('Fetching certificate for domain %s', domain)
-                    groups = (domain,) + match.groups(default='')
-                    altname = [name.format(*groups, domain=domain) for name in certconfig.altname]
+
                     (key, crt, chain) = self.acmeproxy.get_cert(
                         domain=domain,
-                        altname=altname,
+                        altname=certconfig.altname,
                         rekey=certconfig.rekey,
                         renew_margin=certconfig.renew_margin,
                         force_renew=('force_renew' in request.query and request.query['force_renew'] == 'true'),  # pylint: disable=unsupported-membership-test,unsubscriptable-object
