@@ -3,6 +3,7 @@
 import re
 from .tools import dict_to_x509_name
 import textwrap
+from copy import copy
 
 def check_config(config, types):
     if not isinstance(config, dict):
@@ -62,6 +63,17 @@ class ExecuteConfig(AbstractConfig):
         self.timeout = config['timeout'] if 'timeout' in config else None
 
 
+class CertConfigList(list):
+
+    def match(self, domain, **kwargs):
+        for certconfig in self:
+            match = certconfig.match(domain, **kwargs)
+            if match:
+                return match
+
+        return None
+
+
 class CertClientConfig(AbstractConfig):
 
     def __init__(self, pattern, config):
@@ -86,6 +98,25 @@ class CertClientConfig(AbstractConfig):
         self.deploy_chain = FileProperties(config['deploy_chain']) if 'deploy_chain' in config else None
         self.deploy_full_chain = FileProperties(config['deploy_full_chain']) if 'deploy_full_chain' in config else None
         self.priority = config['priority'] if 'priority' in config else 0
+
+    def match(self, domain, **kwargs):
+        match = re.fullmatch(self.pattern, domain)
+        if match:
+            newconfig = copy(self)
+
+            groups = (domain,) + match.groups(default='')
+
+            newconfig.execute.command = self.execute.command.format(*groups, domain=domain, **kwargs)
+            newconfig.deploy_crt.path = self.deploy_crt.path.format(*groups, domain=domain, **kwargs)
+            newconfig.deploy_key.path = self.deploy_key.path.format(*groups, domain=domain, **kwargs)
+            newconfig.deploy_chain.path = self.deploy_chain.path.format(*groups, domain=domain, **kwargs)
+            newconfig.deploy_full_chain.path = self.execute.command.format(*groups, domain=domain, **kwargs)
+
+            return newconfig
+
+        else:
+            return None
+
 
 
 class CertServerConfig(AbstractConfig):
@@ -126,6 +157,20 @@ class CertServerConfig(AbstractConfig):
             self.allowed_hosts = config['allowed_hosts']
         else:
             self.allowed_hosts = []
+
+    def match(self, domain, **kwargs):
+        match = re.fullmatch(self.pattern, domain)
+        if match:
+            newconfig = copy(self)
+
+            groups = (domain,) + match.groups(default='')
+
+            newconfig.altname = [ name.format(*groups, domain=domain, **kwargs) for name in self.altname ]
+
+            return newconfig
+
+        else:
+            return None
 
 
 class ListenConfig(AbstractConfig):
@@ -199,7 +244,7 @@ class ClientConfig(AbstractConfig):
         self.crt_path = config['crt_path']
         self.subject = dict_to_x509_name(config['subject']) if 'subject' in config else dict_to_x509_name({})
 
-        self.certificates_config = []
+        self.certificates_config = CertConfigList()
         if 'certificates' in config:
             for pattern, certificate_config in config['certificates'].items():
                 self.certificates_config.append(CertClientConfig(pattern, certificate_config))
@@ -220,7 +265,7 @@ class ServerConfig(AbstractConfig):
         self.ca = CAConfig(config['ca'])
         self.acme = ACMEConfig(config['acme'])
 
-        self.certificates_config = []
+        self.certificates_config = CertConfigList()
         for pattern, certificate_config in config['certificates'].items():
             self.certificates_config.append(CertServerConfig(pattern, certificate_config))
         self.certificates_config.sort(key=lambda c: c.priority, reverse=True)
