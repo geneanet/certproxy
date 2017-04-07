@@ -7,7 +7,7 @@ import argparse
 import yaml
 from .server import Server, SSLServerAdapter
 from .client import Client
-from .tools import print_array
+from .tools import print_array, match_cert_config
 from .ca import CA
 from .acmeproxy import ACMEProxy
 from .config import Config
@@ -137,9 +137,30 @@ def run():
                     ])
                 print_array(table, headers)
             elif args.action == 'renew':
-                logger.error('Not yet implemented')  # TODO: Implement that
+                certconfig = config.server.certificates_config.match(args.domain)
+                if certconfig:
+                    acmeproxy.get_cert(
+                        domain=args.domain,
+                        altname=certconfig.altname,
+                        rekey=certconfig.rekey,
+                        renew_margin=certconfig.renew_margin,
+                        force_renew=args.force,
+                    )
+                else:
+                    logger.error('No configuration found for domain %s', args.domain)
             elif args.action == 'renewall':
-                logger.error('Not yet implemented')  # TODO: Implement that
+                for cert in acmeproxy.list_certificates():
+                    certconfig = config.server.certificates_config.match(cert['cn'])
+                    if certconfig:
+                        acmeproxy.get_cert(
+                            domain=cert['cn'],
+                            altname=certconfig.altname,
+                            rekey=certconfig.rekey,
+                            renew_margin=certconfig.renew_margin,
+                            force_renew=args.force,
+                        )
+                    else:
+                        logger.error('No configuration found for domain %s', args.domain)
             elif args.action == 'delete':
                 acmeproxy.delete_certificate(args.domain)
             elif args.action == 'revoke':
