@@ -115,7 +115,7 @@ class CertClientConfig(AbstractConfig):
             if self.deploy_chain:
                 newconfig.deploy_chain.path = self.deploy_chain.path.format(*groups, domain=domain, **kwargs)
             if self.deploy_full_chain:
-                newconfig.deploy_full_chain.path = self.execute.command.format(*groups, domain=domain, **kwargs)
+                newconfig.deploy_full_chain.path = self.deploy_full_chain.path.format(*groups, domain=domain, **kwargs)
 
             return newconfig
 
