@@ -40,9 +40,9 @@ client:
     subject:
         countryName: FR
         stateOrProvinceName: Paris
-            locality: Paris
-            organizationName: MyOrg
-            organizationalUnitName: MyUnit
+        locality: Paris
+        organizationName: MyOrg
+        organizationalUnitName: MyUnit
     certificates:
         example\.(org|net):
             deploy_key:
