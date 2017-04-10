@@ -110,6 +110,15 @@ def run():
             registration_file=config.server.acme.registration_file
         )
         if args.subcommand == 'server':
+            # Instanciate CA to make sure CA private key/certificate are OK
+            ca = CA(
+                private_key_file=config.server.ca.private_key_file,
+                certificate_file=config.server.ca.certificate_file,
+                crl_file=config.server.ca.crl_file,
+                crt_path=config.server.ca.crt_path,
+                csr_path=config.server.ca.csr_path,
+                subject=config.server.ca.subject,
+            )
             server = Server(
                 acmeproxy=acmeproxy,
                 csr_path=config.server.ca.csr_path,
