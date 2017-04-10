@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/certproxy --config /etc/certproxy/config.yml
+ExecStart=/usr/local/bin/certproxy --config /etc/certproxy/certproxy.yml server
 StandardOutput=null
 KillMode=process
 Restart=on-failure
