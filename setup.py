@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 """CertProxy setup module."""
 
 from setuptools import setup, find_packages
