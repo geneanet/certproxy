@@ -164,7 +164,7 @@ def run():
             elif args.action == 'delete':
                 acmeproxy.delete_certificate(args.domain)
             elif args.action == 'revoke':
-                logger.error('Not yet implemented')  # TODO: Implement that
+                acmeproxy.revoke_certificate(args.domain)
     elif args.subcommand == 'client':
         client = Client(
             server=config.client.server,

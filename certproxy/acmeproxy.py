@@ -297,3 +297,9 @@ class ACMEProxy:
         if os.path.isfile(key_file):
             logger.debug('Deleting %s', key_file)
             os.unlink(key_file)
+
+    def revoke_certificate(self, domain):
+        certificate_file = os.path.join(self.cache_path, '{}.crt'.format(domain))
+        cert = load_certificate(certificate_file)
+        self.client.revoke(acme.jose.util.ComparableX509(cert), 0)
+        self.delete_certificate(domain)
