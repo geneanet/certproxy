@@ -381,9 +381,9 @@ def writefile(path, data, owner=None, group=None, mode=None):
 
     with open(path, openmode) as f:
         os.fchown(
-            fd=f.fileno(),
-            uid=uid,
-            gid=gid
+            f.fileno(),
+            uid,
+            gid
         )
         if mode is not None:
             os.fchmod(f.fileno(), mode)
