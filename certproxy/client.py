@@ -4,7 +4,6 @@ import requests
 import os
 import subprocess
 import socket
-from munch import Munch
 from datetime import datetime, timedelta
 
 from cryptography import x509
@@ -66,13 +65,13 @@ class Client:
             json=body,
             verify=False
         )
-        data = Munch(response.json())
+        data = response.json()
 
-        if data.status == 'pending':
+        if data['status'] == 'pending':
             logger.info("Authorization requested (key fingerprint: %s)." % rsa_key_fingerprint(self.pkey.public_key()))
-        elif data.status == 'authorized':
+        elif data['status'] == 'authorized':
             with open(self.certificate_file, 'w') as f:
-                f.write(data.crt)
+                f.write(data['crt'])
             logger.info("Client authorized.")
 
     def requestcert(self, domain, force=False, renew_margin=30, force_renew=False):
@@ -142,11 +141,11 @@ class Client:
                 verify=False,
                 params={'force_renew': 'true' if force_renew else 'false'}
             )
-            data = Munch(response.json())
+            data = response.json()
 
-            writefile(certificate_file, data.crt)
-            writefile(chain_file, data.chain)
-            writefile(key_file, data.key)
+            writefile(certificate_file, data['crt'])
+            writefile(chain_file, data['chain'])
+            writefile(key_file, data['key'])
 
             newcrt = load_certificate(certificate_file)
             logger.info('Certificate for %s fetched (expires %s UTC, renew after %s UTC)', domain, newcrt.not_valid_after, newcrt.not_valid_after - timedelta(days=renew_margin))

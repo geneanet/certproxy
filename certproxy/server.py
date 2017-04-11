@@ -5,7 +5,6 @@ from bottle import Bottle, request, response, ServerAdapter
 import os
 import ssl
 import json
-from munch import Munch
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -80,9 +79,9 @@ class Server(Bottle):
         })
 
     def HandleAuth(self):
-        request_data = Munch(request.json)
+        request_data = request.json
 
-        csr = x509.load_pem_x509_csr(data=request_data.csr.encode(), backend=default_backend())
+        csr = x509.load_pem_x509_csr(data=request_data['csr'].encode(), backend=default_backend())  # pylint: disable=unsubscriptable-object
         host = csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
         csr_file = os.path.join(self.csr_path, "%s.csr" % (host))
         crt_file = os.path.join(self.crt_path, "%s.crt" % (host))

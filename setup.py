@@ -59,7 +59,7 @@ setup(
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=['gevent','bottle','acme','pyOpenSSL','cryptography','PyYAML','requests','munch'],
+    install_requires=['gevent','bottle','acme','pyOpenSSL','cryptography','PyYAML','requests'],
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,
