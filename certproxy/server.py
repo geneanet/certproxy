@@ -4,6 +4,7 @@ from gevent import pywsgi
 from bottle import Bottle, request, response, ServerAdapter
 import os
 import ssl
+import json
 from munch import Munch
 
 from cryptography import x509
@@ -69,6 +70,15 @@ class Server(Bottle):
         self.route('/.well-known/acme-challenge/<token>', callback=self.HandleChallenge)
         self.route('/healthcheck', callback=self.HandleHealthCheck)
 
+        self.error(code=500)(self.HandleError)
+
+    def HandleError(self, error):
+        logger.error("Encountered exception while processing request: %s", error.exception)
+        response.content_type = 'application/json'
+        return json.dumps({
+            'message': '{}'.format(error.exception)
+        })
+
     def HandleAuth(self):
         request_data = Munch(request.json)
 
@@ -126,12 +136,21 @@ class Server(Bottle):
                 else:
                     logger.warning('Host %s unauthorized for domain %s.', host, domain)
                     response.status = 403
+                    return {
+                        'message': 'Host {} unauthorized for domain {}'.format(host, domain)
+                    }
             else:
                 logger.warning('No config matching domain %s found.', domain)
                 response.status = 404
+                return {
+                    'message': 'No configuration found for domain {}'.format(domain)
+                }
         else:
             logger.warning('Certificate for %s requested by unauthentified host.', domain)
             response.status = 401
+            return {
+                'message': 'Identification required'
+            }
 
     def HandleChallenge(self, token):
         keyauth = self.acmeproxy.get_challenge_keyauth(token)
