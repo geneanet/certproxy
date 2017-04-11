@@ -6,11 +6,8 @@ import logging
 import argparse
 import yaml
 import os.path
-from .server import Server, SSLServerAdapter
-from .client import Client
 from .tools import print_array
 from .ca import CA
-from .acmeproxy import ACMEProxy
 from .config import Config
 
 rootlogger = logging.getLogger()
@@ -112,6 +109,7 @@ def run():
 
     # Run requested subcommand
     if args.subcommand == 'server' or args.subcommand == 'cert':
+        from .acmeproxy import ACMEProxy
         acmeproxy = ACMEProxy(
             private_key_file=config.server.acme.private_key_file,
             directory_uri=config.server.acme.directory_uri,
@@ -120,6 +118,7 @@ def run():
             registration_file=config.server.acme.registration_file
         )
         if args.subcommand == 'server':
+            from .server import Server, SSLServerAdapter
             # Instanciate CA to make sure CA private key/certificate are OK
             ca = CA(
                 private_key_file=config.server.ca.private_key_file,
@@ -185,6 +184,7 @@ def run():
             elif args.action == 'revoke':
                 acmeproxy.revoke_certificate(args.domain)
     elif args.subcommand == 'client':
+        from .client import Client
         client = Client(
             server=config.client.server,
             private_key_file=config.client.private_key_file,
