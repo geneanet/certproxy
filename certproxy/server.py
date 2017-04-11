@@ -67,6 +67,7 @@ class Server(Bottle):
         self.route('/authorize', callback=self.HandleAuth, method='POST')
         self.route('/cert/<domain>', callback=self.HandleCert)
         self.route('/.well-known/acme-challenge/<token>', callback=self.HandleChallenge)
+        self.route('/healthcheck', callback=self.HandleHealthCheck)
 
     def HandleAuth(self):
         request_data = Munch(request.json)
@@ -138,3 +139,9 @@ class Server(Bottle):
             return keyauth
         else:
             response.status = 404
+
+    def HandleHealthCheck(self):
+        response.status = 200
+        return {
+            'status': 'alive'
+        }
