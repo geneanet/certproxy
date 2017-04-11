@@ -99,6 +99,8 @@ def run():
             configfile = args.config
         elif os.path.isfile('certproxy.yml'):
             configfile = 'certproxy.yml'
+        elif os.path.isfile('/etc/certproxy/certproxy.yml'):
+            configfile = '/etc/certproxy/certproxy.yml'
         else:
             configfile = '/etc/certproxy.yml'
 
