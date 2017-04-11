@@ -30,6 +30,7 @@ class ACMEProxy:
 
     def __init__(self, private_key_file, registration_file, directory_uri, cache_path, email=None):
         """ Constructor """
+        self.registration_file = registration_file
         self.directory_uri = directory_uri
         self.cache_path = cache_path
         self.email = email
@@ -37,16 +38,23 @@ class ACMEProxy:
         pkey = load_or_create_privatekey(private_key_file)
         self.private_key = acme.jose.JWKRSA(key=pkey)
 
-        if os.path.isfile(registration_file):
-            registration_uri = readfile(registration_file).strip()
-        else:
-            registration_uri = None
-
         # Dict to store domain renewal locks
         self.locks = {}
 
         # Dict to store the unanswered challenges
         self.challenges = {}
+
+        # ACME Client will be instanciated lazily (not always needed)
+        self.client = None
+
+    def _init_client(self):
+        if self.client is not None:
+            return
+
+        if os.path.isfile(self.registration_file):
+            registration_uri = readfile(self.registration_file).strip()
+        else:
+            registration_uri = None
 
         # Instanciate an ACME client
         self.client = acme.client.Client(self.directory_uri, self.private_key)
@@ -62,12 +70,13 @@ class ACMEProxy:
             logger.debug('Registering.')
             regr = self._register()
             # Save registration URI
-            writefile(registration_file, regr.uri)
+            writefile(self.registration_file, regr.uri)
 
         logger.info('ACME registration verified.')
 
     def _register(self):
         """ Register a new account at the ACME server """
+        self._init_client()
         newreg = acme.messages.NewRegistration(
             contact=['mailto:{}'.format(self.email)]
         )
@@ -84,6 +93,7 @@ class ACMEProxy:
 
     def _answer_challenge(self, challb):
         """ Answer a challenge """
+        self._init_client()
         # HTTP-01 challenge
         if isinstance(challb.chall, acme.challenges.HTTP01):
             response, validation = challb.response_and_validation(self.private_key)
@@ -137,6 +147,7 @@ class ACMEProxy:
 
     def _request_new_cert(self, domain, keyfile, altname=None):
         """ Generate a new certificate for a domain using an ACME authority """
+        self._init_client()
         # Specific logger
         logger = logging.getLogger('certproxy.acmeproxy.acme')
 
@@ -299,6 +310,7 @@ class ACMEProxy:
             os.unlink(key_file)
 
     def revoke_certificate(self, domain):
+        self._init_client()
         certificate_file = os.path.join(self.cache_path, '{}.crt'.format(domain))
         cert = load_certificate(certificate_file)
         self.client.revoke(acme.jose.util.ComparableX509(cert), 0)
