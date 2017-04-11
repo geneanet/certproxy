@@ -5,6 +5,7 @@ monkey.patch_all()
 import logging
 import argparse
 import yaml
+import os.path
 from .server import Server, SSLServerAdapter
 from .client import Client
 from .tools import print_array
@@ -25,7 +26,7 @@ def run():
     parser.add_argument('--logfile', nargs='?', default=None, help='Log file')
     parser.add_argument('--loglevel', nargs='?', default='info', help='Log level', choices=['debug', 'info', 'warning', 'error', 'critical', 'fatal'])
     parser.add_argument('--logconfig', nargs='?', default=None, help='Logging configuration file (overrides --loglevel and --logfile)')
-    parser.add_argument('--config', nargs='?', default='certproxy.yml', help='Config file')
+    parser.add_argument('--config', nargs='?', default=None, help='Config file')
 
     subp = parser.add_subparsers(dest='subcommand', title='Subcommands', help="Subcommand")
     subp.required = True
@@ -94,10 +95,17 @@ def run():
 
     # Load config file
     try:
-        with open(args.config, 'r') as f:
+        if args.config:
+            configfile = args.config
+        elif os.path.isfile('certproxy.yml'):
+            configfile = 'certproxy.yml'
+        else:
+            configfile = '/etc/certproxy.yml'
+
+        with open(configfile, 'r') as f:
             config = Config(yaml.safe_load(f.read()))
     except Exception as e:
-        logger.error('Unable to read config file (%s)', e)
+        logger.error('Unable to read config file %s (%s)', configfile, e)
         exit(1)
 
     # Run requested subcommand
