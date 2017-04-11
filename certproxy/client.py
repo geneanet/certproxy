@@ -191,18 +191,6 @@ class Client:
         if certconfig:
             logger.debug('Domain %s matches pattern %s', domain, certconfig.pattern)
 
-            # Execute a command if requested
-            if certconfig.execute:
-                command = certconfig.execute.command
-                logger.info('Executing command: %s', command)
-                returncode = subprocess.call(
-                    args=command,
-                    shell=True,
-                    preexec_fn=impersonation(user=certconfig.execute.user, group=certconfig.execute.group, workdir=certconfig.execute.workdir),
-                    timeout=certconfig.execute.timeout
-                )
-                logger.debug('Command returned code %d', returncode)
-
             # Deploy the certificate if requested
             if certconfig.deploy_crt:
                 path = certconfig.deploy_crt.path
@@ -250,6 +238,18 @@ class Client:
                     mode=certconfig.deploy_full_chain.mode,
                     data=readfile(certificate_file) + '\n' + readfile(chain_file),
                 )
+
+            # Execute a command if requested
+            if certconfig.execute:
+                command = certconfig.execute.command
+                logger.info('Executing command: %s', command)
+                returncode = subprocess.call(
+                    args=command,
+                    shell=True,
+                    preexec_fn=impersonation(user=certconfig.execute.user, group=certconfig.execute.group, workdir=certconfig.execute.workdir),
+                    timeout=certconfig.execute.timeout
+                )
+                logger.debug('Command returned code %d', returncode)
 
         else:
             logger.debug('No configuration found for domain %s', domain)
