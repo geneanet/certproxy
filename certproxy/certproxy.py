@@ -43,11 +43,6 @@ def run():
     subp_cert = parser_cert.add_subparsers(dest='action', title='Actions', help="Action")
     subp_cert.required = True
     subp_cert.add_parser('list', help='List cached certificates')
-    parser_cert_renew = subp_cert.add_parser('renew', help='Renew a cached certificate (if needed)')
-    parser_cert_renew.add_argument('domain', help='Domain')
-    parser_cert_renew.add_argument('--force', default=False, action='store_true', help='Force the renewal of the certificate')
-    parser_cert_renewall = subp_cert.add_parser('renewall', help='Renew all cached certificates (if needed)')
-    parser_cert_renewall.add_argument('--force', default=False, action='store_true', help='Force the renewal of the certificates')
     parser_cert_delete = subp_cert.add_parser('delete', help='Delete a certificate in cache')
     parser_cert_delete.add_argument('domain', help='Domain')
     parser_cert_revoke = subp_cert.add_parser('revoke', help='Revoke a certificate')
@@ -154,31 +149,6 @@ def run():
                         cert['fingerprint'],
                     ])
                 print_array(table, headers)
-            elif args.action == 'renew':
-                certconfig = config.server.certificates_config.match(args.domain)
-                if certconfig:
-                    acmeproxy.get_cert(
-                        domain=args.domain,
-                        altname=certconfig.altname,
-                        rekey=certconfig.rekey,
-                        renew_margin=certconfig.renew_margin,
-                        force_renew=args.force,
-                    )
-                else:
-                    logger.error('No configuration found for domain %s', args.domain)
-            elif args.action == 'renewall':
-                for cert in acmeproxy.list_certificates():
-                    certconfig = config.server.certificates_config.match(cert['cn'])
-                    if certconfig:
-                        acmeproxy.get_cert(
-                            domain=cert['cn'],
-                            altname=certconfig.altname,
-                            rekey=certconfig.rekey,
-                            renew_margin=certconfig.renew_margin,
-                            force_renew=args.force,
-                        )
-                    else:
-                        logger.error('No configuration found for domain %s', args.domain)
             elif args.action == 'delete':
                 acmeproxy.delete_certificate(args.domain)
             elif args.action == 'revoke':
