@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from gevent import pywsgi
-from bottle import Bottle, request, response, ServerAdapter
+from bottle import Bottle, request, response, ServerAdapter, HTTPResponse
 import os
 import ssl
 import json
@@ -52,6 +52,35 @@ class RequestHandler(pywsgi.WSGIHandler):
         return env
 
 
+class JSONPlugin(object):
+    def setup(self, app):
+        def default_error_handler(res):
+            if res.content_type == "application/json":
+                return res.body
+            res.content_type = "application/json"
+            return json.dumps({'message': str(res.exception if res.exception else res.body)})
+
+        app.default_error_handler = default_error_handler
+
+    def apply(self, callback, route):
+        def wrapper(*a, **ka):
+            try:
+                rv = callback(*a, **ka)
+            except HTTPResponse as resp:
+                rv = resp
+
+            if isinstance(rv, dict):
+                json_response = json.dumps(rv)
+                response.content_type = 'application/json'
+                return json_response
+            elif isinstance(rv, HTTPResponse) and isinstance(rv.body, dict):
+                rv.body = json.dumps(rv.body)
+                rv.content_type = 'application/json'
+            return rv
+
+        return wrapper
+
+
 class Server(Bottle):
 
     def __init__(self, acmeproxy, csr_path, crt_path, certificates_config, private_key_file, certificate_file, crl_file):
@@ -69,14 +98,8 @@ class Server(Bottle):
         self.route('/.well-known/acme-challenge/<token>', callback=self.HandleChallenge)
         self.route('/healthcheck', callback=self.HandleHealthCheck)
 
-        self.error(code=500)(self.HandleError)
+        self.install(JSONPlugin())
 
-    def HandleError(self, error):
-        logger.error("Encountered exception while processing request: %s", error.exception)
-        response.content_type = 'application/json'
-        return json.dumps({
-            'message': '{}'.format(error.exception)
-        })
 
     def HandleAuth(self):
         request_data = request.json
