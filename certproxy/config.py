@@ -264,6 +264,7 @@ class ServerConfig(AbstractConfig):
             'ca': (dict, True),
             'acme': (dict, True),
             'certificates': (dict, True),
+            'admin_hosts': (list, False),
         })
 
         self.listen = ListenConfig(config['listen']) if 'listen' in config else ListenConfig()
@@ -274,6 +275,8 @@ class ServerConfig(AbstractConfig):
         for pattern, certificate_config in config['certificates'].items():
             self.certificates_config.append(CertServerConfig(pattern, certificate_config))
         self.certificates_config.sort(key=lambda c: c.priority, reverse=True)
+
+        self.admin_hosts = config['admin_hosts'] if 'admin_hosts' in config else []
 
 
 class Config(AbstractConfig):

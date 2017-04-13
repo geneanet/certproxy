@@ -12,7 +12,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 
-from .tools import load_certificate, get_cn
+from .tools import load_certificate
 
 import logging
 
@@ -106,7 +106,7 @@ class JSONPlugin(object):
 
 class Server(Bottle):
 
-    def __init__(self, acmeproxy, csr_path, crt_path, certificates_config, private_key_file, certificate_file, crl_file):
+    def __init__(self, acmeproxy, csr_path, crt_path, certificates_config, private_key_file, certificate_file, crl_file, admin_hosts):
         super(Server, self).__init__()
         self.acmeproxy = acmeproxy
         self.csr_path = csr_path
@@ -115,14 +115,79 @@ class Server(Bottle):
         self.private_key_file = private_key_file
         self.certificate_file = certificate_file
         self.crl_file = crl_file
+        self.admin_hosts = admin_hosts
 
         self.route('/authorize', callback=self.HandleAuth, method='POST')
+        self.route('/cert', callback=self.HandleListCerts)
+        self.route('/cert/*/renew', callback=self.HandleRenewAll, method='POST')
         self.route('/cert/<domain>', callback=self.HandleCert)
+        self.route('/cert/<domain>/renew', callback=self.HandleCert, method='POST')
+        self.route('/cert/<domain>/revoke', callback=self.HandleRevokeCert, method='POST')
+        self.route('/cert/<domain>/delete', callback=self.HandleDeleteCert, method='POST')
         self.route('/.well-known/acme-challenge/<token>', callback=self.HandleChallenge)
         self.route('/healthcheck', callback=self.HandleHealthCheck)
 
         self.install(JSONPlugin())
 
+    def _get_cert_config_if_allowed(self, domain, cert):
+        if cert is not None:
+            if isinstance(cert, bytes):
+                cert = load_certificate(cert_bytes=cert)
+
+            if isinstance(cert, x509.Certificate):
+                host = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+            else:
+                raise TypeError('cert must be a raw certificate in PEM or DER format or an x509.Certificate instance.')
+
+        else:
+            logger.warning('Request received for domain %s by unauthentified host.', domain)
+            raise HTTPResponse(
+                status=401,
+                body={'message': 'Authentication required'}
+            )
+
+        certconfig = self.certificates_config.match(domain)
+
+        if certconfig:
+            logger.debug('Domain %s matches pattern %s', domain, certconfig.pattern)
+            if host in self.admin_hosts or host in certconfig.allowed_hosts:
+                return certconfig
+            else:
+                logger.warning('Host %s unauthorized for domain %s.', host, domain)
+                raise HTTPResponse(
+                    status=403,
+                    body={'message': 'Host {} unauthorized for domain {}'.format(host, domain)}
+                )
+        else:
+            logger.warning('No config matching domain %s found.', domain)
+            raise HTTPResponse(
+                status=404,
+                body={'message': 'No configuration found for domain {}'.format(domain)}
+            )
+
+    def _assert_admin(self, cert):
+        if cert is not None:
+            if isinstance(cert, bytes):
+                cert = load_certificate(cert_bytes=cert)
+
+            if isinstance(cert, x509.Certificate):
+                host = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+            else:
+                raise TypeError('cert must be a raw certificate in PEM or DER format or an x509.Certificate instance.')
+
+        else:
+            logger.warning('Admin command received by unauthentified host.')
+            raise HTTPResponse(
+                status=401,
+                body={'message': 'Authentication required'}
+            )
+
+        if host not in self.admin_hosts:
+            logger.warning('Host %s unauthorized for admin commands.', host)
+            raise HTTPResponse(
+                status=403,
+                body={'message': 'Host {} unauthorized for admin commands'.format(host)}
+            )
 
     def HandleAuth(self):
         request_data = request.json
@@ -152,50 +217,90 @@ class Server(Bottle):
     def HandleCert(self, domain):
         rawcert = request.environ['ssl_certificate']
 
-        if rawcert:
-            cert = load_certificate(cert_bytes=rawcert)
-            host = get_cn(cert.subject)
+        certconfig = self._get_cert_config_if_allowed(domain, rawcert)
 
-            logger.debug('Certificate for %s requested by host %s.', domain, host)
+        logger.debug('Fetching certificate for domain %s', domain)
 
+        (key, crt, chain) = self.acmeproxy.get_cert(
+            domain=domain,
+            altname=certconfig.altname,
+            rekey=certconfig.rekey,
+            renew_margin=certconfig.renew_margin,
+            force_renew=('force_renew' in request.query and request.query['force_renew'] == 'true'),  # pylint: disable=unsupported-membership-test,unsubscriptable-object
+            auto_renew=certconfig.renew_on_fetch
+        )
+
+        return {
+            'crt': crt.decode(),
+            'key': key.decode(),
+            'chain': chain.decode()
+        }
+
+    def HandleListCerts(self):
+        rawcert = request.environ['ssl_certificate']
+
+        self._assert_admin(rawcert)
+
+        certs = self.acmeproxy.list_certificates()
+
+        return {
+            'certificates': certs
+        }
+
+    def HandleRenewAll(self):
+        rawcert = request.environ['ssl_certificate']
+
+        self._assert_admin(rawcert)
+
+        result = {
+            'ok': [],
+            'error': []
+        }
+
+        for cert in self.acmeproxy.list_certificates():
+            domain = cert['cn']
             certconfig = self.certificates_config.match(domain)
-
             if certconfig:
-                logger.debug('Domain %s matches pattern %s', domain, certconfig.pattern)
-                if host in certconfig.allowed_hosts:
-                    logger.debug('Fetching certificate for domain %s', domain)
-
-                    (key, crt, chain) = self.acmeproxy.get_cert(
+                logger.debug('Getting certificate for domain %s', domain)
+                try:
+                    self.acmeproxy.get_cert(
                         domain=domain,
                         altname=certconfig.altname,
                         rekey=certconfig.rekey,
                         renew_margin=certconfig.renew_margin,
                         force_renew=('force_renew' in request.query and request.query['force_renew'] == 'true'),  # pylint: disable=unsupported-membership-test,unsubscriptable-object
-                        auto_renew=certconfig.renew_on_fetch
                     )
-                    return {
-                        'crt': crt.decode(),
-                        'key': key.decode(),
-                        'chain': chain.decode()
-                    }
-                else:
-                    logger.warning('Host %s unauthorized for domain %s.', host, domain)
-                    response.status = 403
-                    return {
-                        'message': 'Host {} unauthorized for domain {}'.format(host, domain)
-                    }
+                    result['ok'].append(domain)
+                except Exception as e:
+                    logger.error('Encountered exception while getting certificate for domain %s (%s)', domain, e)
+                    result['error'].append(domain)
             else:
-                logger.warning('No config matching domain %s found.', domain)
-                response.status = 404
-                return {
-                    'message': 'No configuration found for domain {}'.format(domain)
-                }
-        else:
-            logger.warning('Certificate for %s requested by unauthentified host.', domain)
-            response.status = 401
-            return {
-                'message': 'Identification required'
-            }
+                logger.error('No configuration found for domain %s', domain)
+                result['error'].append(domain)
+
+        return result
+
+    def HandleRevokeCert(self, domain):
+        rawcert = request.environ['ssl_certificate']
+
+        self._assert_admin(rawcert)
+
+        self.acmeproxy.revoke_certificate(domain)
+
+        return {
+            'status': 'revoked'
+        }
+
+    def HandleDeleteCert(self, domain):
+        rawcert = request.environ['ssl_certificate']
+
+        self._assert_admin(rawcert)
+
+        self.acmeproxy.delete_certificate(domain)
+
+        return {
+            'status': 'deleted'
+        }
 
     def HandleChallenge(self, token):
         keyauth = self.acmeproxy.get_challenge_keyauth(token)

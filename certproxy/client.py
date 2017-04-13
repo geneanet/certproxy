@@ -273,3 +273,130 @@ class Client:
         if os.path.isfile(key_file):
             logger.debug('Deleting %s', key_file)
             os.unlink(key_file)
+
+    def admin_renewall(self, force_renew):
+        response = requests.post(
+            url='{}/cert/*/renew'.format(self.server),
+            cert=(self.certificate_file, self.private_key_file),
+            verify=False,
+            params={'force_renew': 'true' if force_renew else 'false'}
+        )
+
+        if response.status_code == 200:
+            logger.info('All managed certificates have been renewed.')
+            return True
+
+        elif response.status_code >= 400 and response.status_code < 500:
+            data = response.json()
+            logger.error('CertProxy server could not process the request: %s', data['message'])
+            return False
+
+        elif response.status_code == 500:
+            data = response.json()
+            logger.error('An error occured on CertProxy server while processing the request: %s', data['message'])
+            return False
+
+        else:
+            logger.error('CertProxy server replied with an unexpected error code: %d (%s)', response.status_code, response.reason)
+            return False
+
+    def admin_renew(self, domain, force_renew):
+        response = requests.post(
+            url='{}/cert/{}/renew'.format(self.server, domain),
+            cert=(self.certificate_file, self.private_key_file),
+            verify=False,
+            params={'force_renew': 'true' if force_renew else 'false'}
+        )
+
+        if response.status_code == 200:
+            logger.info('Certificate for %s has been renewed.', domain)
+            return True
+
+        elif response.status_code >= 400 and response.status_code < 500:
+            data = response.json()
+            logger.error('CertProxy server could not process the request: %s', data['message'])
+            return False
+
+        elif response.status_code == 500:
+            data = response.json()
+            logger.error('An error occured on CertProxy server while processing the request: %s', data['message'])
+            return False
+
+        else:
+            logger.error('CertProxy server replied with an unexpected error code: %d (%s)', response.status_code, response.reason)
+            return False
+
+    def admin_revoke(self, domain):
+        response = requests.post(
+            url='{}/cert/{}/revoke'.format(self.server, domain),
+            cert=(self.certificate_file, self.private_key_file),
+            verify=False,
+        )
+
+        if response.status_code == 200:
+            logger.info('Certificate for %s has been revoked.', domain)
+            return True
+
+        elif response.status_code >= 400 and response.status_code < 500:
+            data = response.json()
+            logger.error('CertProxy server could not process the request: %s', data['message'])
+            return False
+
+        elif response.status_code == 500:
+            data = response.json()
+            logger.error('An error occured on CertProxy server while processing the request: %s', data['message'])
+            return False
+
+        else:
+            logger.error('CertProxy server replied with an unexpected error code: %d (%s)', response.status_code, response.reason)
+            return False
+
+    def admin_delete(self, domain):
+        response = requests.post(
+            url='{}/cert/{}/delete'.format(self.server, domain),
+            cert=(self.certificate_file, self.private_key_file),
+            verify=False,
+        )
+
+        if response.status_code == 200:
+            logger.info('Certificate for %s has been deleted.', domain)
+            return True
+
+        elif response.status_code >= 400 and response.status_code < 500:
+            data = response.json()
+            logger.error('CertProxy server could not process the request: %s', data['message'])
+            return False
+
+        elif response.status_code == 500:
+            data = response.json()
+            logger.error('An error occured on CertProxy server while processing the request: %s', data['message'])
+            return False
+
+        else:
+            logger.error('CertProxy server replied with an unexpected error code: %d (%s)', response.status_code, response.reason)
+            return False
+
+    def admin_list(self):
+        response = requests.get(
+            url='{}/cert'.format(self.server),
+            cert=(self.certificate_file, self.private_key_file),
+            verify=False,
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            return data['certificates']
+
+        elif response.status_code >= 400 and response.status_code < 500:
+            data = response.json()
+            logger.error('CertProxy server could not process the request: %s', data['message'])
+            return None
+
+        elif response.status_code == 500:
+            data = response.json()
+            logger.error('An error occured on CertProxy server while processing the request: %s', data['message'])
+            return None
+
+        else:
+            logger.error('CertProxy server replied with an unexpected error code: %d (%s)', response.status_code, response.reason)
+            return None

@@ -2,6 +2,8 @@ server:
     listen:
         host: 0.0.0.0
         port: 8888
+    admin_hosts:
+        - adminserver.mycompany.com
     ca:
         private_key_file: /var/lib/certproxy/ca/server.key
         certificate_file: /var/lib/certproxy/ca/server.crt

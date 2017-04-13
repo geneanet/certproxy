@@ -39,14 +39,19 @@ def run():
     parser_auth_revoke.add_argument('host', help='Host to revoke')
     subp_auth.add_parser('clean', help='Clean revoked hosts certificates and unaccepted requests')
 
-    parser_cert = subp.add_parser('cert', help='Manage cached certificates')
-    subp_cert = parser_cert.add_subparsers(dest='action', title='Actions', help="Action")
-    subp_cert.required = True
-    subp_cert.add_parser('list', help='List cached certificates')
-    parser_cert_delete = subp_cert.add_parser('delete', help='Delete a certificate in cache')
-    parser_cert_delete.add_argument('domain', help='Domain')
-    parser_cert_revoke = subp_cert.add_parser('revoke', help='Revoke a certificate')
-    parser_cert_revoke.add_argument('domain', help='Domain')
+    parser_admin = subp.add_parser('admin', help='Act as an admin of a CertProxy server')
+    subp_admin = parser_admin.add_subparsers(dest='action', title='Actions', help="Action")
+    subp_admin.required = True
+    subp_admin.add_parser('list', help='List managed certificates')
+    parser_admin_delete = subp_admin.add_parser('delete', help='Delete a managed certificate')
+    parser_admin_delete.add_argument('domain', help='Domain')
+    parser_admin_revoke = subp_admin.add_parser('revoke', help='Revoke a managed certificate')
+    parser_admin_revoke.add_argument('domain', help='Domain')
+    parser_admin_renew = subp_admin.add_parser('renew', help='Renew managed certificate')
+    parser_admin_renew.add_argument('domain', help='Domain')
+    parser_admin_renew.add_argument('--force', default=False, action='store_true', help='Force the renewal of the certificates')
+    parser_admin_renewall = subp_admin.add_parser('renew-all', help='Renew all managed certificates')
+    parser_admin_renewall.add_argument('--force', default=False, action='store_true', help='Force the renewal of the certificates')
 
     parser_client = subp.add_parser('client', help='Act as a client to a CertProxy server')
     subp_client = parser_client.add_subparsers(dest='action', title='Actions', help="Action")
@@ -103,8 +108,9 @@ def run():
         exit(1)
 
     # Run requested subcommand
-    if args.subcommand == 'server' or args.subcommand == 'cert':
+    if args.subcommand == 'server':
         from .acmeproxy import ACMEProxy
+        from .server import Server, SSLServerAdapter
         acmeproxy = ACMEProxy(
             private_key_file=config.server.acme.private_key_file,
             directory_uri=config.server.acme.directory_uri,
@@ -112,47 +118,59 @@ def run():
             email=config.server.acme.email,
             registration_file=config.server.acme.registration_file
         )
-        if args.subcommand == 'server':
-            from .server import Server, SSLServerAdapter
-            # Instanciate CA to make sure CA private key/certificate are OK
-            ca = CA(
-                private_key_file=config.server.ca.private_key_file,
-                certificate_file=config.server.ca.certificate_file,
-                crl_file=config.server.ca.crl_file,
-                crt_path=config.server.ca.crt_path,
-                csr_path=config.server.ca.csr_path,
-                subject=config.server.ca.subject,
-            )
-            server = Server(
-                acmeproxy=acmeproxy,
-                csr_path=config.server.ca.csr_path,
-                crt_path=config.server.ca.crt_path,
-                certificates_config=config.server.certificates_config,
-                private_key_file=config.server.ca.private_key_file,
-                certificate_file=config.server.ca.certificate_file,
-                crl_file=config.server.ca.crl_file,
-            )
-            server.run(
-                server=SSLServerAdapter,
-                quiet=True,
-                host=config.server.listen.host,
-                port=config.server.listen.port,
-            )
-        elif args.subcommand == 'cert':
-            if args.action == 'list':
-                table = []
-                headers = ['CN', 'Expiration', 'Fingerprint']
-                for cert in acmeproxy.list_certificates():
-                    table.append([
-                        cert['cn'],
-                        cert['not_valid_after'],
-                        cert['fingerprint'],
-                    ])
-                print_array(table, headers)
-            elif args.action == 'delete':
-                acmeproxy.delete_certificate(args.domain)
-            elif args.action == 'revoke':
-                acmeproxy.revoke_certificate(args.domain)
+        # Instanciate CA to make sure CA private key/certificate are OK
+        ca = CA(
+            private_key_file=config.server.ca.private_key_file,
+            certificate_file=config.server.ca.certificate_file,
+            crl_file=config.server.ca.crl_file,
+            crt_path=config.server.ca.crt_path,
+            csr_path=config.server.ca.csr_path,
+            subject=config.server.ca.subject,
+        )
+        server = Server(
+            acmeproxy=acmeproxy,
+            csr_path=config.server.ca.csr_path,
+            crt_path=config.server.ca.crt_path,
+            certificates_config=config.server.certificates_config,
+            private_key_file=config.server.ca.private_key_file,
+            certificate_file=config.server.ca.certificate_file,
+            crl_file=config.server.ca.crl_file,
+            admin_hosts=config.server.admin_hosts,
+        )
+        server.run(
+            server=SSLServerAdapter,
+            quiet=True,
+            host=config.server.listen.host,
+            port=config.server.listen.port,
+        )
+    elif args.subcommand == 'admin':
+        from .client import Client
+        client = Client(
+        server=config.client.server,
+        private_key_file=config.client.private_key_file,
+        certificate_file=config.client.certificate_file,
+        crt_path=config.client.crt_path,
+        subject=config.client.subject,
+        certificates_config=config.client.certificates_config
+        )
+        if args.action == 'list':
+            table = []
+            headers = ['CN', 'Expiration', 'Fingerprint']
+            for cert in client.admin_list():
+                table.append([
+                    cert['cn'],
+                    cert['not_valid_after'],
+                    cert['fingerprint'],
+                ])
+            print_array(table, headers)
+        elif args.action == 'delete':
+            client.admin_delete(args.domain)
+        elif args.action == 'revoke':
+            client.admin_revoke(args.domain)
+        elif args.action == 'renew':
+            client.admin_renew(args.domain, args.force)
+        elif args.action == 'renew-all':
+            client.admin_renewall(args.force)
     elif args.subcommand == 'client':
         from .client import Client
         client = Client(
