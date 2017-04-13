@@ -11,7 +11,8 @@ import os
 from gevent.lock import Semaphore
 from gevent import idle
 
-from .tools import load_certificate, load_privatekey, load_or_create_privatekey, create_privatekey, dump_pem, readfile, writefile, list_certificates
+from .tools.crypto import load_certificate, load_privatekey, load_or_create_privatekey, create_privatekey, dump_pem, list_certificates
+from .tools.misc import readfile, writefile
 
 logger = logging.getLogger('certproxy.acmeproxy')
 

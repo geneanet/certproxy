@@ -6,7 +6,7 @@ import logging
 import argparse
 import yaml
 import os.path
-from .tools import print_array
+from .tools.misc import print_array
 from .ca import CA
 from .config import Config
 

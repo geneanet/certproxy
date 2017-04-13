@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import re
-from .tools import dict_to_x509_name
+from .tools.crypto import dict_to_x509_name
 import textwrap
 from copy import copy
 

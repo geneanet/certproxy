@@ -12,7 +12,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes
 
-from .tools import load_certificate, load_or_create_privatekey, rsa_key_fingerprint, writefile, readfile, load_privatekey, impersonation, list_certificates
+from .tools.crypto import load_certificate, load_or_create_privatekey, rsa_key_fingerprint, load_privatekey, list_certificates
+from .tools.misc import writefile, readfile, impersonation
 
 import logging
 
