@@ -24,6 +24,7 @@ requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.
 # Monkey-patch Requests to use our custom JSON decoder
 monkey_patch_requests()
 
+
 class Client:
 
     def __init__(self, server, private_key_file, certificate_file, crt_path, subject, certificates_config):

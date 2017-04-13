@@ -131,7 +131,6 @@ class CertClientConfig(AbstractConfig):
             return None
 
 
-
 class CertServerConfig(AbstractConfig):
 
     def __init__(self, pattern, config):
@@ -178,7 +177,7 @@ class CertServerConfig(AbstractConfig):
 
             groups = (domain,) + match.groups(default='')
 
-            newconfig.altname = [ name.format(*groups, domain=domain, **kwargs) for name in self.altname ]
+            newconfig.altname = [name.format(*groups, domain=domain, **kwargs) for name in self.altname]
 
             return newconfig
 

@@ -144,12 +144,12 @@ def run():
     elif args.subcommand == 'admin':
         from .client import Client
         client = Client(
-        server=config.client.server,
-        private_key_file=config.client.private_key_file,
-        certificate_file=config.client.certificate_file,
-        crt_path=config.client.crt_path,
-        subject=config.client.subject,
-        certificates_config=config.client.certificates_config
+            server=config.client.server,
+            private_key_file=config.client.private_key_file,
+            certificate_file=config.client.certificate_file,
+            crt_path=config.client.crt_path,
+            subject=config.client.subject,
+            certificates_config=config.client.certificates_config
         )
         if args.action == 'list':
             table = []

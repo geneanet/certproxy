@@ -18,7 +18,7 @@ logger = logging.getLogger('certproxy.tools.crypto')
 def list_certificates(path):
     certs = []
 
-    for crt_file in filter(lambda f: f.endswith('.crt') and not f.endswith('-chain.crt') ,os.listdir(path)):
+    for crt_file in filter(lambda f: f.endswith('.crt') and not f.endswith('-chain.crt'), os.listdir(path)):
         try:
             crt = load_certificate(os.path.join(path, crt_file))
 
