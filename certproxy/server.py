@@ -5,6 +5,7 @@ from bottle import Bottle, request, response, ServerAdapter, HTTPResponse
 import os
 import ssl
 import json
+import datetime
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -53,12 +54,34 @@ class RequestHandler(pywsgi.WSGIHandler):
 
 
 class JSONPlugin(object):
+
+    class JSONEncoder(json.JSONEncoder):
+        def default(self, o):  # pylint: disable=method-hidden
+            if isinstance(o, datetime.datetime):
+                r = o.isoformat()
+                if o.microsecond:
+                    r = r[:23] + r[26:]
+                if r.endswith('+00:00'):
+                    r = r[:-6] + 'Z'
+                return r
+            elif isinstance(o, datetime.date):
+                return o.isoformat()
+            elif isinstance(o, datetime.time):
+                if o.tzinfo is not None and o.tzinfo.utcoffset(o) is not None:
+                    raise ValueError("JSON can't represent timezone-aware times.")
+                r = o.isoformat()
+                if o.microsecond:
+                    r = r[:12]
+                return r
+            else:
+                return super().default(o)
+
     def setup(self, app):
         def default_error_handler(res):
             if res.content_type == "application/json":
                 return res.body
             res.content_type = "application/json"
-            return json.dumps({'message': str(res.exception if res.exception else res.body)})
+            return json.dumps({'message': str(res.exception if res.exception else res.body)}, cls=JSONPlugin.JSONEncoder)
 
         app.default_error_handler = default_error_handler
 
@@ -70,11 +93,11 @@ class JSONPlugin(object):
                 rv = resp
 
             if isinstance(rv, dict):
-                json_response = json.dumps(rv)
+                json_response = json.dumps(rv, cls=JSONPlugin.JSONEncoder)
                 response.content_type = 'application/json'
                 return json_response
             elif isinstance(rv, HTTPResponse) and isinstance(rv.body, dict):
-                rv.body = json.dumps(rv.body)
+                rv.body = json.dumps(rv.body, cls=JSONPlugin.JSONEncoder)
                 rv.content_type = 'application/json'
             return rv
 
