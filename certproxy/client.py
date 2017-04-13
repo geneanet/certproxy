@@ -14,12 +14,15 @@ from cryptography.hazmat.primitives import hashes
 
 from .tools.crypto import load_certificate, load_or_create_privatekey, rsa_key_fingerprint, load_privatekey, list_certificates
 from .tools.misc import writefile, readfile, impersonation
+from .tools.json import monkey_patch_requests
 
 import logging
 
 logger = logging.getLogger('certproxy.client')
 requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
+# Monkey-patch Requests to use our custom JSON decoder
+monkey_patch_requests()
 
 class Client:
 
