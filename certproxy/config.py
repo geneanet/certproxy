@@ -4,6 +4,13 @@ import re
 from .tools.crypto import dict_to_x509_name
 import textwrap
 from copy import copy
+import yaml
+
+
+def load_config(configfile):
+    with open(configfile, 'r') as f:
+        return Config(yaml.safe_load(f.read()))
+
 
 def check_config(config, types):
     if not isinstance(config, dict):
@@ -14,6 +21,7 @@ def check_config(config, types):
             raise TypeError('{} must be defined'.format(key))
         elif key in config and not isinstance(config[key], valuetype):
             raise TypeError('{} must be of type {}'.format(key, valuetype.__name__))
+
 
 class AbstractConfig:
 

@@ -4,10 +4,9 @@ from gevent import monkey
 monkey.patch_all()
 import logging
 import argparse
-import yaml
 import os.path
 from .tools.misc import print_array
-from .config import Config
+from .config import load_config
 
 rootlogger = logging.getLogger()
 logger = logging.getLogger('certproxy')
@@ -100,8 +99,7 @@ def run():
         else:
             configfile = '/etc/certproxy.yml'
 
-        with open(configfile, 'r') as f:
-            config = Config(yaml.safe_load(f.read()))
+        config = load_config(configfile)
     except Exception as e:
         logger.error('Unable to read config file %s (%s)', configfile, e)
         exit(1)
