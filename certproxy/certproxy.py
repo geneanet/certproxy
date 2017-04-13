@@ -7,7 +7,6 @@ import argparse
 import yaml
 import os.path
 from .tools.misc import print_array
-from .ca import CA
 from .config import Config
 
 rootlogger = logging.getLogger()
@@ -111,6 +110,7 @@ def run():
     if args.subcommand == 'server':
         from .acmeproxy import ACMEProxy
         from .server import Server, SSLServerAdapter
+        from .ca import CA
         acmeproxy = ACMEProxy(
             private_key_file=config.server.acme.private_key_file,
             directory_uri=config.server.acme.directory_uri,
@@ -201,6 +201,7 @@ def run():
         elif args.action == 'delete':
             client.delete_certificate(args.domain)
     elif args.subcommand == 'auth':
+        from .ca import CA
         ca = CA(
             private_key_file=config.server.ca.private_key_file,
             certificate_file=config.server.ca.certificate_file,
