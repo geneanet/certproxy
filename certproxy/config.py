@@ -5,11 +5,60 @@ from .tools.crypto import dict_to_x509_name
 import textwrap
 from copy import copy
 import yaml
+import os
+import logging
+
+logger = logging.getLogger('certproxy.config')
+
+class YamlLoader(yaml.Loader):
+    def __init__(self, stream):
+        logger.debug('Loading config file %s', stream.name)
+        self._root = os.path.split(stream.name)[0]
+        super(YamlLoader, self).__init__(stream)
+        YamlLoader.add_constructor('!include', YamlLoader.include)
+        YamlLoader.add_constructor('!merge_list', YamlLoader.merge_list)
+
+    def include(self, node):
+        if isinstance(node, yaml.ScalarNode):
+            return self.extractFile(self.construct_scalar(node))
+
+        elif isinstance(node, yaml.SequenceNode):
+            result = []
+            for filename in self.construct_sequence(node):
+                result += self.extractFile(filename)
+            return result
+
+        else:
+            raise yaml.constructor.ConstructorError
+
+    def merge_list(self, node):
+        if isinstance(node, yaml.SequenceNode):
+            result = []
+
+            for item in node.value:
+                obj = self.construct_object(item)
+
+                if isinstance(obj, list):
+                    result.extend(obj)
+
+                else:
+                    result.append(obj)
+
+            return result
+
+        else:
+            raise yaml.constructor.ConstructorError
+
+    def extractFile(self, filename):
+        filepath = os.path.join(self._root, filename)
+        with open(filepath, 'r') as f:
+            return yaml.load(f, YamlLoader)
 
 
 def load_config(configfile):
     with open(configfile, 'r') as f:
-        return Config(yaml.safe_load(f.read()))
+        config = Config(yaml.load(f, YamlLoader))
+        return config
 
 
 def check_config(config, types):
