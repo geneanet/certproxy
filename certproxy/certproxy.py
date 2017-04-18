@@ -3,6 +3,7 @@
 from gevent import monkey
 monkey.patch_all()
 import logging
+import logging.config
 import argparse
 import os.path
 from .tools.misc import print_array
