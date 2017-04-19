@@ -10,7 +10,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 
-from .tools.crypto import load_certificate
+from .tools.crypto import load_certificate, dump_pem
 from .tools.json import dumps
 
 import logging
@@ -171,18 +171,31 @@ class Server(Bottle):
         request_data = request.json
 
         csr = x509.load_pem_x509_csr(data=request_data['csr'].encode(), backend=default_backend())  # pylint: disable=unsubscriptable-object
+
+        if not csr.is_signature_valid:
+            raise HTTPResponse(
+                status=400,
+                body={'message': 'The certificate signing request signature is invalid.'}
+            )
+
         host = csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
         csr_file = os.path.join(self.csr_path, "%s.csr" % (host))
         crt_file = os.path.join(self.crt_path, "%s.crt" % (host))
 
         if os.path.isfile(crt_file):
-            # Return CRT
-            with open(crt_file, 'r') as f:
-                crt = f.read()
-            return {
-                'status': 'authorized',
-                'crt': crt
-            }
+            crt = load_certificate(crt_file)
+
+            if crt.public_key().public_numbers() == csr.public_key().public_numbers():
+                return {
+                    'status': 'authorized',
+                    'crt': dump_pem(crt).decode()
+                }
+            else:
+                raise HTTPResponse(
+                    status=409,
+                    body={'message': 'Mismatch between the certificate signing request and the certificate.'}
+                )
+
         else:
             # Save CSR
             with open(csr_file, 'w') as f:
