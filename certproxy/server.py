@@ -95,15 +95,15 @@ class Server(Bottle):
         self.crl_file = crl_file
         self.admin_hosts = admin_hosts
 
-        self.route('/authorize', callback=self.HandleAuth, method='POST')
-        self.route('/cert', callback=self.HandleListCerts)
-        self.route('/cert/*/renew', callback=self.HandleRenewAll, method='POST')
-        self.route('/cert/<domain>', callback=self.HandleCert)
-        self.route('/cert/<domain>/renew', callback=self.HandleCert, method='POST')
-        self.route('/cert/<domain>/revoke', callback=self.HandleRevokeCert, method='POST')
-        self.route('/cert/<domain>/delete', callback=self.HandleDeleteCert, method='POST')
-        self.route('/.well-known/acme-challenge/<token>', callback=self.HandleChallenge)
-        self.route('/healthcheck', callback=self.HandleHealthCheck)
+        self.route('/authorize', callback=self._handle_auth, method='POST')
+        self.route('/cert', callback=self._handle_list_certs)
+        self.route('/cert/*/renew', callback=self._handle_renew_all, method='POST')
+        self.route('/cert/<domain>', callback=self._handle_cert)
+        self.route('/cert/<domain>/renew', callback=self._handle_cert, method='POST')
+        self.route('/cert/<domain>/revoke', callback=self._handle_revoke_cert, method='POST')
+        self.route('/cert/<domain>/delete', callback=self._handle_delete_cert, method='POST')
+        self.route('/.well-known/acme-challenge/<token>', callback=self._handle_challenge)
+        self.route('/healthcheck', callback=self._handle_health_check)
 
         self.install(JSONPlugin())
 
@@ -167,7 +167,7 @@ class Server(Bottle):
                 body={'message': 'Host {} unauthorized for admin commands'.format(host)}
             )
 
-    def HandleAuth(self):
+    def _handle_auth(self):
         request_data = request.json
 
         csr = x509.load_pem_x509_csr(data=request_data['csr'].encode(), backend=default_backend())  # pylint: disable=unsubscriptable-object
@@ -192,7 +192,7 @@ class Server(Bottle):
                 'status': 'pending'
             }
 
-    def HandleCert(self, domain):
+    def _handle_cert(self, domain):
         rawcert = request.environ['ssl_certificate']
 
         certconfig = self._get_cert_config_if_allowed(domain, rawcert)
@@ -214,7 +214,7 @@ class Server(Bottle):
             'chain': chain.decode()
         }
 
-    def HandleListCerts(self):
+    def _handle_list_certs(self):
         rawcert = request.environ['ssl_certificate']
 
         self._assert_admin(rawcert)
@@ -225,7 +225,7 @@ class Server(Bottle):
             'certificates': certs
         }
 
-    def HandleRenewAll(self):
+    def _handle_renew_all(self):
         rawcert = request.environ['ssl_certificate']
 
         self._assert_admin(rawcert)
@@ -258,7 +258,7 @@ class Server(Bottle):
 
         return result
 
-    def HandleRevokeCert(self, domain):
+    def _handle_revoke_cert(self, domain):
         rawcert = request.environ['ssl_certificate']
 
         self._assert_admin(rawcert)
@@ -269,7 +269,7 @@ class Server(Bottle):
             'status': 'revoked'
         }
 
-    def HandleDeleteCert(self, domain):
+    def _handle_delete_cert(self, domain):
         rawcert = request.environ['ssl_certificate']
 
         self._assert_admin(rawcert)
@@ -280,14 +280,14 @@ class Server(Bottle):
             'status': 'deleted'
         }
 
-    def HandleChallenge(self, token):
+    def _handle_challenge(self, token):
         keyauth = self.acmeproxy.get_challenge_keyauth(token)
         if keyauth:
             return keyauth
         else:
             response.status = 404
 
-    def HandleHealthCheck(self):
+    def _handle_health_check(self):
         response.status = 200
         return {
             'status': 'alive'
