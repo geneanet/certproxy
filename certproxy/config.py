@@ -3,7 +3,7 @@
 import re
 from .tools.crypto import dict_to_x509_name
 import textwrap
-from copy import copy
+from copy import deepcopy
 import yaml
 import os
 import logging
@@ -159,7 +159,7 @@ class CertClientConfig(AbstractConfig):
     def match(self, domain, **kwargs):
         match = re.fullmatch(self.pattern, domain)
         if match:
-            newconfig = copy(self)
+            newconfig = deepcopy(self)
 
             groups = (domain,) + match.groups(default='')
 
@@ -222,7 +222,7 @@ class CertServerConfig(AbstractConfig):
     def match(self, domain, **kwargs):
         match = re.fullmatch(self.pattern, domain)
         if match:
-            newconfig = copy(self)
+            newconfig = deepcopy(self)
 
             groups = (domain,) + match.groups(default='')
 
