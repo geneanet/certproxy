@@ -10,6 +10,7 @@ import logging
 import os
 from gevent.lock import Semaphore
 from gevent import idle
+import josepy as jose
 
 from .tools.crypto import load_certificate, load_privatekey, load_or_create_privatekey, create_privatekey, dump_pem, list_certificates
 from .tools.misc import readfile, writefile
@@ -37,7 +38,7 @@ class ACMEProxy:
         self.email = email
 
         pkey = load_or_create_privatekey(private_key_file)
-        self.private_key = acme.jose.JWKRSA(key=pkey)
+        self.private_key = jose.JWKRSA(key=pkey)
 
         # Dict to store domain renewal locks
         self.locks = {}
@@ -185,7 +186,7 @@ class ACMEProxy:
 
         # Request certificate and chain
         logger.debug("Requesting certificate issuance for domain %s (altname: %s).", domain, ','.join(altname))
-        (crt, auths) = self.client.poll_and_request_issuance(acme.jose.util.ComparableX509(req), auths)
+        (crt, auths) = self.client.poll_and_request_issuance(jose.util.ComparableX509(req), auths)
         logger.debug("Requesting certificate chain for domain %s.", domain)
         chain = self.client.fetch_chain(crt)
 
@@ -314,5 +315,5 @@ class ACMEProxy:
         self._init_client()
         certificate_file = os.path.join(self.cache_path, '{}.crt'.format(domain))
         cert = load_certificate(certificate_file)
-        self.client.revoke(acme.jose.util.ComparableX509(cert), 0)
+        self.client.revoke(jose.util.ComparableX509(cert), 0)
         self.delete_certificate(domain)
