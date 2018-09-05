@@ -7,6 +7,7 @@ from copy import deepcopy
 import yaml
 import os
 import logging
+from collections import OrderedDict
 
 logger = logging.getLogger('certproxy.config')
 
@@ -17,6 +18,11 @@ class YamlLoader(yaml.Loader):
         super(YamlLoader, self).__init__(stream)
         YamlLoader.add_constructor('!include', YamlLoader.include)
         YamlLoader.add_constructor('!merge_list', YamlLoader.merge_list)
+        self.add_constructor(u'tag:yaml.org,2002:map', type(self).construct_yaml_map)
+
+    def construct_yaml_map(self, node):
+        self.flatten_mapping(node)
+        return OrderedDict(self.construct_pairs(node))
 
     def include(self, node):
         if isinstance(node, yaml.ScalarNode):
