@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import json
+import simplejson
 import re
 from datetime import datetime, date, time
 
@@ -10,14 +10,14 @@ re_tz = r'(?P<tz>Z|[+-][01]\d:[0-5]\d)'
 
 
 def dumps(obj, **kwargs):
-    return json.dumps(obj=obj, cls=JSONEncoder)
+    return simplejson.dumps(obj=obj, cls=JSONEncoder)
 
 
 def loads(s, **kwargs):
-    return json.loads(s=s, cls=JSONDecoder)
+    return simplejson.loads(s=s, cls=JSONDecoder)
 
 
-class JSONEncoder(json.JSONEncoder):
+class JSONEncoder(simplejson.JSONEncoder):
 
     def default(self, o):  # pylint: disable=method-hidden
         if isinstance(o, (datetime, date, time)):
@@ -26,7 +26,7 @@ class JSONEncoder(json.JSONEncoder):
             return super().default(o)
 
 
-class JSONDecoder(json.JSONDecoder):
+class JSONDecoder(simplejson.JSONDecoder):
 
     def decode(self, s):
         o = super().decode(s)
@@ -70,7 +70,8 @@ def monkey_patch_requests():
     from requests.models import Response
     oldjson = Response.json
 
-    def newjson(self, *k, **kw):
+    def newjson(*k, **kw):
         kw['cls'] = JSONDecoder
-        return oldjson(self, *k, **kw)
+        return oldjson(*k, **kw)
+
     Response.json = newjson
