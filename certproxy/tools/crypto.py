@@ -265,10 +265,10 @@ def load_or_create_ca_certificate(crt_file, subject, pkey):
             critical=True
         ).add_extension(
             extension=x509.SubjectKeyIdentifier.from_public_key(pkey.public_key()),
-            critical=True
+            critical=False
         ).add_extension(
             extension=x509.AuthorityKeyIdentifier.from_issuer_public_key(pkey.public_key()),
-            critical=True
+            critical=False
         ).sign(
             private_key=pkey,
             algorithm=hashes.SHA256(),
