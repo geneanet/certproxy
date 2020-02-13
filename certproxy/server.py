@@ -21,7 +21,7 @@ logger = logging.getLogger('certproxy.server')
 class SSLServerAdapter(ServerAdapter):
 
     def run(self, handler):
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         context.load_cert_chain(handler.certificate_file, handler.private_key_file)
         context.load_verify_locations(cafile=handler.certificate_file)
         context.load_verify_locations(cafile=handler.crl_file)
