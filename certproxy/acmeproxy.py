@@ -59,7 +59,9 @@ class ACMEProxy:
             registration_uri = None
 
         # Instanciate an ACME client
-        self.client = acme.client.Client(self.directory_uri, self.private_key)
+        net = acme.client.ClientNetwork(self.private_key, user_agent='certproxy')
+        directory = acme.messages.Directory.from_json(net.get(self.directory_uri).json())
+        self.client = acme.client.ClientV2(directory, net=net)
 
         # If we are already registered
         if registration_uri:
@@ -70,24 +72,11 @@ class ACMEProxy:
         else:
             # Register
             logger.debug('Registering.')
-            regr = self._register()
+            regr = self.client.new_account(acme.messages.NewRegistration.from_data(email=self.email, terms_of_service_agreed=True))
             # Save registration URI
             writefile(self.registration_file, regr.uri)
 
         logger.info('ACME registration verified.')
-
-    def _register(self):
-        """ Register a new account at the ACME server """
-        self._init_client()
-        newreg = acme.messages.NewRegistration(
-            contact=['mailto:{}'.format(self.email)]
-        )
-        regr = self.client.register(newreg)
-        return self.client.agree_to_tos(regr)
-
-    def _supported_combination(self, challenges, combination):
-        """ Check if a challenge combination is supported """
-        return all([self._supported_challenge(challenges[challidx].chall) for challidx in combination])
 
     def _supported_challenge(self, challenge):
         """ Check if a challenge is supported """
@@ -107,15 +96,17 @@ class ACMEProxy:
 
     def _process_auth(self, auth):
         """ Process an authorization request by answering the requested challenges """
-        # Keep only combos with supported challenges
-        supported_combos = [combo for combo in auth.body.combinations if self._supported_combination(auth.body.challenges, combo)]
 
-        if not supported_combos:
-            raise Exception("No challenges combination were supported.")
+        if auth.body.status == acme.messages.STATUS_VALID:
+            logger.debug("Domain %s already authorized, valid till %s.", auth.body.identifier.value, auth.body.expires)
+        else:
+            logger.debug("Processing authorization for domain %s.", auth.body.identifier.value)
 
-        # Pick the first supported combo and answer its challenges
-        for challb in [auth.body.challenges[idx] for idx in supported_combos[0]]:
-            self._answer_challenge(challb)
+            # Pick the first supported challenge
+            for challb in [c for c in auth.body.challenges if self._supported_challenge(c.chall)]:
+                return self._answer_challenge(challb)
+
+            raise Exception("No challenge were supported.")
 
     def _gc_challenge_keyauth(self):
         """ Garbage collect expired challenges """
@@ -149,7 +140,15 @@ class ACMEProxy:
 
     def _request_new_cert(self, domain, keyfile, altname=None):
         """ Generate a new certificate for a domain using an ACME authority """
+
+        # Add domain to altname
+        if altname == None:
+            altname = []
+        altname = set([domain] + altname)
+
+        # Init client
         self._init_client()
+
         # Specific logger
         logger = logging.getLogger('certproxy.acmeproxy.acme')
 
@@ -162,39 +161,27 @@ class ACMEProxy:
         req.add_extensions([
             crypto.X509Extension("keyUsage".encode(), False, "Digital Signature, Non Repudiation, Key Encipherment".encode()),
             crypto.X509Extension("basicConstraints".encode(), False, "CA:FALSE".encode()),
+            crypto.X509Extension("subjectAltName".encode(), False, ', '.join(["DNS:{}".format(domain) for domain in altname]).encode())
         ])
-        if altname:
-            req.add_extensions([
-                crypto.X509Extension("subjectAltName".encode(), False, ', '.join(["DNS:{}".format(domain) for domain in altname]).encode())
-            ])
         req.set_pubkey(key)
         req.sign(key, "sha256")
+        req_pem = crypto.dump_certificate_request(crypto.FILETYPE_PEM, req)
+
+        order = self.client.new_order(req_pem)
 
         # Validate every domain
-        auths = []
-        for dom in set(altname + [domain]):
-            logger.debug("Requesting challenges for domain %s.", dom)
-            auth = self.client.request_domain_challenges(dom)
-
-            if auth.body.status != acme.messages.STATUS_VALID:
-                logger.debug("Domain %s not yet authorized. Processing authorization.", dom)
-                self._process_auth(auth)
-            else:
-                logger.debug("Domain %s already authorized, valid till %s.", dom, auth.body.expires)
-
-            auths.append(auth)
+        for auth in order.authorizations:
+            self._process_auth(auth)
 
         # Request certificate and chain
         logger.debug("Requesting certificate issuance for domain %s (altname: %s).", domain, ','.join(altname))
-        (crt, auths) = self.client.poll_and_request_issuance(jose.util.ComparableX509(req), auths)
-        logger.debug("Requesting certificate chain for domain %s.", domain)
-        chain = self.client.fetch_chain(crt)
+        order = self.client.poll_and_finalize(order)
 
         # Dump to PEM
-        crt_pem = crypto.dump_certificate(crypto.FILETYPE_PEM, crt.body)
-        chain_pem = '\n'.join([crypto.dump_certificate(crypto.FILETYPE_PEM, link).decode() for link in chain]).encode()
+        chain_pem = order.fullchain_pem
+        crt_pem = chain_pem.split('\n\n')[0]
 
-        return (crt_pem, chain_pem)
+        return (crt_pem.encode(), chain_pem.encode())
 
     def get_cert(self, domain, altname=None, rekey=False, renew_margin=30, force_renew=False, auto_renew=True):
         """ Return a certificate from the local cache or request a new one if necessary """
