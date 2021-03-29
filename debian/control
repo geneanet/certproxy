@@ -1,0 +1,13 @@
+Source: certproxy
+Section: contrib/python
+Priority: optional
+Maintainer: Hervé BRY <herve.bry@geneanet.org>
+Build-Depends: debhelper (>= 11), python3, dh-virtualenv (>= 1.0), python3-virtualenv, python3-setuptools, python3-pip, python3-dev, libffi-dev, libssl-dev
+Standards-Version: 4.5.0
+
+Package: certproxy
+Architecture: any
+Pre-Depends: dpkg (>= 1.16.1), python3 (>= 3.5), ${misc:Pre-Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: SSL certificates and keys manager
+

@@ -1,0 +1,13 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@ --with python-virtualenv --with-systemd
+
+override_dh_virtualenv:
+	dh_virtualenv --python python3
+
+override_dh_install:
+	dh_install   #calls default *.install and *.dirs installation
+	mkdir -m 700 -p $(CURDIR)/debian/certproxy/var/lib/certproxy/ca/csr $(CURDIR)/debian/certproxy/var/lib/certproxy/ca/crt $(CURDIR)/debian/certproxy/var/lib/certproxy/acme/crt $(CURDIR)/debian/certproxy/var/lib/certproxy/client/crt
+	mkdir -p $(CURDIR)/debian/certproxy/etc/certproxy
+
