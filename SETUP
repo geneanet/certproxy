@@ -1,0 +1,9 @@
+apt-get install python3-pip libffi-dev libssl-dev
+pip3 install 'setuptools>=11'
+
+./setup.py install
+
+mkdir -p /var/lib/certproxy/ca/{csr,crt} /var/lib/certproxy/acme/crt /var/lib/certproxy/client/crt
+chmod 700 /var/lib/certproxy/
+mkdir /etc/certproxy
+
