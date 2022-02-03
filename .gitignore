@@ -2,3 +2,5 @@
 *.key
 *.pyc
 __pycache__
+*.yml
+test.py
