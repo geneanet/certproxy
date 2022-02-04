@@ -11,6 +11,7 @@ import os
 from gevent.lock import Semaphore
 from gevent import idle
 import josepy as jose
+import requests
 
 from .tools.crypto import load_certificate, load_privatekey, load_or_create_privatekey, create_privatekey, dump_pem, list_certificates
 from .tools.misc import readfile, writefile, domain_filename
@@ -82,33 +83,42 @@ class ACMEProxy:
     def _process_auth(self, auth, tsig_key=None):
         """ Process an authorization request by answering the requested challenges """
 
-        if tsig_key:
-            supported_challenges = [acme.challenges.HTTP01, acme.challenges.DNS01]
-        else:
-            supported_challenges = [acme.challenges.HTTP01]
-
         if auth.body.status == acme.messages.STATUS_VALID:
             logger.debug("Domain %s already authorized, valid till %s.", auth.body.identifier.value, auth.body.expires)
         else:
             logger.debug("Processing authorization for domain %s.", auth.body.identifier.value)
 
             # Pick the first supported challenge
-            for challb in [c for c in auth.body.challenges if type(c.chall) in supported_challenges]:
+            for challb in auth.body.challenges:
                 self._init_client()
+
+                response, validation = challb.response_and_validation(self.private_key)
+                token = challb.chall.encode('token')
 
                 # HTTP-01 challenge
                 if isinstance(challb.chall, acme.challenges.HTTP01):
-                    response, validation = challb.response_and_validation(self.private_key)
-                    self._add_challenge_keyauth(challb.chall.encode('token'), validation)
-                    return self.client.answer_challenge(challb, response)
+                    logger.debug('Trying HTTP01 challenge')
+                    try:
+                        self._add_challenge_keyauth(token, validation)
+                        url = "http://%s/.well-known/acme-challenge/%s" % (auth.body.identifier.value, token)
+                        responsecheck = requests.get(url=url)
+                        if responsecheck.status_code != 200 or responsecheck.text != validation:
+                            raise Exception('GET %s returned %d (%s)' % (url, responsecheck.status_code, responsecheck.text))
+                        else:
+                            return self.client.answer_challenge(challb, response)
+                    except Exception as e:
+                        logger.error('Challenge HTTP01 failed (%s)', e)
 
                 # DNS-01 challenge
-                elif isinstance(challb.chall, acme.challenges.DNS01):
-                    response, validation = challb.response_and_validation(self.private_key)
-                    (zone, subdomain, zonemaster_ip) = fetch_acme_zonemaster(auth.body.identifier.value)
-                    update_record(zone, subdomain, 300, 'TXT', validation, zonemaster_ip, tsig_key)
-                    wait_record_consistency(zone, subdomain, 'TXT')
-                    return self.client.answer_challenge(challb, response)
+                elif isinstance(challb.chall, acme.challenges.DNS01) and tsig_key:
+                    logger.debug('Trying DNS01 challenge')
+                    try:
+                        (zone, subdomain, zonemaster_ip) = fetch_acme_zonemaster(auth.body.identifier.value)
+                        update_record(zone, subdomain, 300, 'TXT', validation, zonemaster_ip, tsig_key)
+                        wait_record_consistency(zone, subdomain, 'TXT')
+                        return self.client.answer_challenge(challb, response)
+                    except Exception as e:
+                        logger.error('Challenge DNS01 failed (%s)', e)
 
             raise Exception("No challenge were supported.")
 
