@@ -15,7 +15,7 @@ import requests
 
 from .tools.crypto import load_certificate, load_privatekey, load_or_create_privatekey, create_privatekey, dump_pem, list_certificates
 from .tools.misc import readfile, writefile, domain_filename
-from certproxy.tools.dns import fetch_acme_zonemaster, update_record, wait_record_consistency
+from .tools.dns import fetch_acme_zonemaster, update_record, wait_record_consistency, delete_record
 
 logger = logging.getLogger('certproxy.acmeproxy')
 
@@ -116,7 +116,12 @@ class ACMEProxy:
                         (zone, subdomain, zonemaster_ip) = fetch_acme_zonemaster(auth.body.identifier.value)
                         update_record(zone, subdomain, 300, 'TXT', validation, zonemaster_ip, tsig_key)
                         wait_record_consistency(zone, subdomain, 'TXT')
-                        return self.client.answer_challenge(challb, response)
+                        ret = self.client.answer_challenge(challb, response)
+                        try:
+                            delete_record(zone, subdomain, 'TXT', zonemaster_ip, tsig_key)
+                        except Exception as e:
+                            logger.warning('Exception during DNS cleanup: %s', e)
+                        return ret
                     except Exception as e:
                         logger.error('Challenge DNS01 failed (%s)', e)
 

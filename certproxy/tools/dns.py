@@ -77,6 +77,13 @@ def update_record(zone: str, subdomain: str, ttl: int, recordtype: str, recordva
     update.replace(subdomain, ttl, recordtype, recordvalue)
     dns.query.tcp(update, zonemaster_ip, timeout=10)
 
+def delete_record(zone: str, subdomain: str, recordtype: str, zonemaster_ip: str, tsig_key: dict):
+    logger.debug('Deleting record for zone %s (zone master %s): %s %s', zone, zonemaster_ip, subdomain, recordtype)
+    keyring = dns.tsigkeyring.from_text(tsig_key)
+    update = dns.update.Update(zone, keyring=keyring)
+    update.delete(subdomain, recordtype)
+    dns.query.tcp(update, zonemaster_ip, timeout=10)
+
 def wait_record_consistency(zone: str, subdomain: str, recordtype: str, timeout: float=10, wait: float=1):
     nameservers = [str(ns.target) for ns in fetch_records(zone, 'NS')]
 
