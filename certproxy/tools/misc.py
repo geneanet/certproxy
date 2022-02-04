@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger('certproxy.tools.misc')
 
 
-def impersonation(user=None, group=None, workdir=None):
+def impersonation(user: str=None, group: str=None, workdir: str=None):
     def impersonate():
         """Change user, group and workdir"""
         if group is not None:
@@ -24,7 +24,7 @@ def impersonation(user=None, group=None, workdir=None):
     return impersonate
 
 
-def print_array(rows, headers=None):
+def print_array(rows: list, headers: list=None):
     if not headers:
         headers = []
 
@@ -38,7 +38,7 @@ def print_array(rows, headers=None):
         print(' '.join([str(val).ljust(width) for val, width in zip(row, widths)]))
 
 
-def readfile(path, binary=False):
+def readfile(path: str, binary: bool=False):
     if binary:
         mode = 'rb'
     else:
@@ -48,7 +48,7 @@ def readfile(path, binary=False):
         return f.read()
 
 
-def writefile(path, data, owner=None, group=None, mode=None):
+def writefile(path: str, data, owner: str=None, group: str=None, mode: int=None):
     if isinstance(data, bytes):
         openmode = 'wb'
     else:
