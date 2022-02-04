@@ -82,7 +82,7 @@ class JSONPlugin(object):
 
 class Server(Bottle):
 
-    def __init__(self, acmeproxy, csr_path, crt_path, certificates_config, private_key_file, certificate_file, crl_file, admin_hosts):
+    def __init__(self, acmeproxy, csr_path, crt_path, certificates_config, private_key_file, certificate_file, crl_file, admin_hosts, tsig_keyring):
         super(Server, self).__init__()
         self.acmeproxy = acmeproxy
         self.csr_path = csr_path
@@ -92,6 +92,7 @@ class Server(Bottle):
         self.certificate_file = certificate_file
         self.crl_file = crl_file
         self.admin_hosts = admin_hosts
+        self.tsig_keyring = tsig_keyring
 
         self.route('/authorize', callback=self._handle_auth, method='POST')
         self.route('/cert', callback=self._handle_list_certs)
@@ -210,13 +211,22 @@ class Server(Bottle):
 
         logger.debug('Fetching certificate for domain %s', domain)
 
+        if certconfig.tsig_keyname:
+            for key in self.tsig_keyring:
+                if key.id == certconfig.tsig_keyname:
+                    tsig_key = {key.id: (key.algorithm, key.secret)}
+                    break
+        else:
+            tsig_key = None
+
         (key, crt, chain) = self.acmeproxy.get_cert(
             domain=domain,
             altname=certconfig.altname,
             rekey=certconfig.rekey,
             renew_margin=certconfig.renew_margin,
             force_renew=('force_renew' in request.query and request.query['force_renew'] == 'true'),  # pylint: disable=unsupported-membership-test,unsubscriptable-object
-            auto_renew=certconfig.renew_on_fetch
+            auto_renew=certconfig.renew_on_fetch,
+            tsig_key=tsig_key
         )
 
         return {
@@ -252,12 +262,20 @@ class Server(Bottle):
             if certconfig:
                 logger.debug('Getting certificate for domain %s', domain)
                 try:
+                    if certconfig.tsig_keyname:
+                        for key in self.tsig_keyring:
+                            if key.id == certconfig.tsig_keyname:
+                                tsig_key = {key.id: (key.algorithm, key.secret)}
+                                break
+                    else:
+                        tsig_key = None
                     self.acmeproxy.get_cert(
                         domain=domain,
                         altname=certconfig.altname,
                         rekey=certconfig.rekey,
                         renew_margin=certconfig.renew_margin,
                         force_renew=('force_renew' in request.query and request.query['force_renew'] == 'true'),  # pylint: disable=unsupported-membership-test,unsubscriptable-object
+                        tsig_key=tsig_key
                     )
                     result['ok'].append(domain)
                 except Exception as e:

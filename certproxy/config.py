@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import re
+
 from .tools.crypto import dict_to_x509_name
+from .tools.misc import domain_filename
 import textwrap
 from copy import deepcopy
 import yaml
@@ -170,15 +172,15 @@ class CertClientConfig(AbstractConfig):
             groups = (domain,) + match.groups(default='')
 
             if self.execute:
-                newconfig.execute.command = self.execute.command.format(*groups, domain=domain, **kwargs)
+                newconfig.execute.command = self.execute.command.format(*groups, domain=domain_filename(domain), **kwargs)
             if self.deploy_crt:
-                newconfig.deploy_crt.path = self.deploy_crt.path.format(*groups, domain=domain, **kwargs)
+                newconfig.deploy_crt.path = self.deploy_crt.path.format(*groups, domain=domain_filename(domain), **kwargs)
             if self.deploy_key:
-                newconfig.deploy_key.path = self.deploy_key.path.format(*groups, domain=domain, **kwargs)
+                newconfig.deploy_key.path = self.deploy_key.path.format(*groups, domain=domain_filename(domain), **kwargs)
             if self.deploy_chain:
-                newconfig.deploy_chain.path = self.deploy_chain.path.format(*groups, domain=domain, **kwargs)
+                newconfig.deploy_chain.path = self.deploy_chain.path.format(*groups, domain=domain_filename(domain), **kwargs)
             if self.deploy_full_chain:
-                newconfig.deploy_full_chain.path = self.deploy_full_chain.path.format(*groups, domain=domain, **kwargs)
+                newconfig.deploy_full_chain.path = self.deploy_full_chain.path.format(*groups, domain=domain_filename(domain), **kwargs)
 
             return newconfig
 
@@ -196,6 +198,7 @@ class CertServerConfig(AbstractConfig):
             'renew_margin': (int, False),
             'renew_on_fetch': (int, False),
             'priority': (int, False),
+            'tsig_keyname': (str, False),
         })
 
         try:
@@ -205,6 +208,7 @@ class CertServerConfig(AbstractConfig):
 
         self.pattern = pattern
         self.priority = config['priority'] if 'priority' in config else 0
+        self.tsig_keyname = config['tsig_keyname'] if 'tsig_keyname' in config else None
         self.rekey = config['rekey'] if 'rekey' in config else False
         self.renew_margin = config['renew_margin'] if 'renew_margin' in config else 30
         self.renew_on_fetch = config['renew_on_fetch'] if 'renew_on_fetch' in config else True
@@ -317,6 +321,20 @@ class ClientConfig(AbstractConfig):
                 self.certificates_config.append(CertClientConfig(pattern, certificate_config))
         self.certificates_config.sort(key=lambda c: c.priority, reverse=True)
 
+class TSIGKey(AbstractConfig):
+    def __init__(self, config):
+        check_config(config, types={
+            'id': (str, True),
+            'algorithm': (str, False),
+            'secret': (str, True),
+        })
+
+        self.id = config['id']
+        if 'algorithm' in config:
+            self.algorithm = config['algorithm']
+        else:
+            self.algorithm = 'hmac-sha256'
+        self.secret = config['secret']
 
 class ServerConfig(AbstractConfig):
 
@@ -327,6 +345,7 @@ class ServerConfig(AbstractConfig):
             'acme': (dict, True),
             'certificates': (dict, True),
             'admin_hosts': (list, False),
+            'tsig_keyring': (list, False),
         })
 
         self.listen = ListenConfig(config['listen']) if 'listen' in config else ListenConfig()
@@ -339,6 +358,11 @@ class ServerConfig(AbstractConfig):
         self.certificates_config.sort(key=lambda c: c.priority, reverse=True)
 
         self.admin_hosts = config['admin_hosts'] if 'admin_hosts' in config else []
+        self.tsig_keyring = []
+        if 'tsig_keyring' in config:
+            for item in config['tsig_keyring']:
+                self.tsig_keyring.append(TSIGKey(item))
+
 
 
 class Config(AbstractConfig):

@@ -13,7 +13,7 @@ from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes
 
 from .tools.crypto import load_certificate, load_or_create_privatekey, rsa_key_fingerprint, load_privatekey, list_certificates
-from .tools.misc import writefile, readfile, impersonation
+from .tools.misc import writefile, readfile, impersonation, domain_filename
 from .tools.json import monkey_patch_requests
 
 import logging
@@ -86,9 +86,9 @@ class Client:
             logger.error('CertProxy server replied with an unexpected error code: %d (%s)', response.status_code, response.reason)
 
     def requestcert(self, domain, force=False, renew_margin=30, force_renew=False):
-        certificate_file = os.path.join(self.crt_path, '{}.crt'.format(domain))
-        chain_file = os.path.join(self.crt_path, '{}-chain.crt'.format(domain))
-        key_file = os.path.join(self.crt_path, '{}.key'.format(domain))
+        certificate_file = os.path.join(self.crt_path, '{}.crt'.format(domain_filename(domain)))
+        chain_file = os.path.join(self.crt_path, '{}-chain.crt'.format(domain_filename(domain)))
+        key_file = os.path.join(self.crt_path, '{}.key'.format(domain_filename(domain)))
 
         # Try to load existing private key
         if os.path.isfile(key_file):
@@ -186,9 +186,9 @@ class Client:
 
     def execute_actions(self, domain):
         # Find a config matching the domain
-        certificate_file = os.path.join(self.crt_path, '{}.crt'.format(domain))
-        chain_file = os.path.join(self.crt_path, '{}-chain.crt'.format(domain))
-        key_file = os.path.join(self.crt_path, '{}.key'.format(domain))
+        certificate_file = os.path.join(self.crt_path, '{}.crt'.format(domain_filename(domain)))
+        chain_file = os.path.join(self.crt_path, '{}-chain.crt'.format(domain_filename(domain)))
+        key_file = os.path.join(self.crt_path, '{}.key'.format(domain_filename(domain)))
 
         certconfig = self.certificates_config.match(domain, certificate_file=certificate_file, chain_file=chain_file, key_file=key_file)
 
@@ -263,9 +263,9 @@ class Client:
         return list_certificates(self.crt_path)
 
     def delete_certificate(self, domain):
-        certificate_file = os.path.join(self.crt_path, '{}.crt'.format(domain))
-        chain_file = os.path.join(self.crt_path, '{}-chain.crt'.format(domain))
-        key_file = os.path.join(self.crt_path, '{}.key'.format(domain))
+        certificate_file = os.path.join(self.crt_path, '{}.crt'.format(domain_filename(domain)))
+        chain_file = os.path.join(self.crt_path, '{}-chain.crt'.format(domain_filename(domain)))
+        key_file = os.path.join(self.crt_path, '{}.key'.format(domain_filename(domain)))
 
         if os.path.isfile(certificate_file):
             logger.debug('Deleting %s', certificate_file)

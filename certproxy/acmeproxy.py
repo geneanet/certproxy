@@ -13,7 +13,8 @@ from gevent import idle
 import josepy as jose
 
 from .tools.crypto import load_certificate, load_privatekey, load_or_create_privatekey, create_privatekey, dump_pem, list_certificates
-from .tools.misc import readfile, writefile
+from .tools.misc import readfile, writefile, domain_filename
+from certproxy.tools.dns import fetch_acme_zonemaster, update_record, wait_record_consistency
 
 logger = logging.getLogger('certproxy.acmeproxy')
 
@@ -78,24 +79,13 @@ class ACMEProxy:
 
         logger.info('ACME registration verified.')
 
-    def _supported_challenge(self, challenge):
-        """ Check if a challenge is supported """
-        return isinstance(challenge, acme.challenges.HTTP01)
-
-    def _answer_challenge(self, challb):
-        """ Answer a challenge """
-        self._init_client()
-        # HTTP-01 challenge
-        if isinstance(challb.chall, acme.challenges.HTTP01):
-            response, validation = challb.response_and_validation(self.private_key)
-            self._add_challenge_keyauth(challb.chall.encode('token'), validation)
-            return self.client.answer_challenge(challb, response)
-        # Unsupported challenge
-        else:
-            raise Exception("Unsupported challenge (type %s)" % (type(challb.chall)))
-
-    def _process_auth(self, auth):
+    def _process_auth(self, auth, tsig_key=None):
         """ Process an authorization request by answering the requested challenges """
+
+        if tsig_key:
+            supported_challenges = [acme.challenges.HTTP01, acme.challenges.DNS01]
+        else:
+            supported_challenges = [acme.challenges.HTTP01]
 
         if auth.body.status == acme.messages.STATUS_VALID:
             logger.debug("Domain %s already authorized, valid till %s.", auth.body.identifier.value, auth.body.expires)
@@ -103,8 +93,22 @@ class ACMEProxy:
             logger.debug("Processing authorization for domain %s.", auth.body.identifier.value)
 
             # Pick the first supported challenge
-            for challb in [c for c in auth.body.challenges if self._supported_challenge(c.chall)]:
-                return self._answer_challenge(challb)
+            for challb in [c for c in auth.body.challenges if type(c.chall) in supported_challenges]:
+                self._init_client()
+
+                # HTTP-01 challenge
+                if isinstance(challb.chall, acme.challenges.HTTP01):
+                    response, validation = challb.response_and_validation(self.private_key)
+                    self._add_challenge_keyauth(challb.chall.encode('token'), validation)
+                    return self.client.answer_challenge(challb, response)
+
+                # DNS-01 challenge
+                elif isinstance(challb.chall, acme.challenges.DNS01):
+                    response, validation = challb.response_and_validation(self.private_key)
+                    (zone, subdomain, zonemaster_ip) = fetch_acme_zonemaster(auth.body.identifier.value)
+                    update_record(zone, subdomain, 300, 'TXT', validation, zonemaster_ip, tsig_key)
+                    wait_record_consistency(zone, subdomain, 'TXT')
+                    return self.client.answer_challenge(challb, response)
 
             raise Exception("No challenge were supported.")
 
@@ -138,7 +142,7 @@ class ACMEProxy:
             logger.debug("Deleting key authorization for token %s.", token)
             del self.challenges[token]
 
-    def _request_new_cert(self, domain, keyfile, altname=None):
+    def _request_new_cert(self, domain, keyfile, altname=None, tsig_key=None):
         """ Generate a new certificate for a domain using an ACME authority """
 
         # Add domain to altname
@@ -171,7 +175,7 @@ class ACMEProxy:
 
         # Validate every domain
         for auth in order.authorizations:
-            self._process_auth(auth)
+            self._process_auth(auth, tsig_key)
 
         # Request certificate and chain
         logger.debug("Requesting certificate issuance for domain %s (altname: %s).", domain, ','.join(altname))
@@ -183,11 +187,11 @@ class ACMEProxy:
 
         return (crt_pem.encode(), chain_pem.encode())
 
-    def get_cert(self, domain, altname=None, rekey=False, renew_margin=30, force_renew=False, auto_renew=True):
+    def get_cert(self, domain, altname=None, rekey=False, renew_margin=30, force_renew=False, auto_renew=True, tsig_key=None):
         """ Return a certificate from the local cache or request a new one if necessary """
-        crtfile = os.path.join(self.cache_path, '{}.crt'.format(domain))
-        chainfile = os.path.join(self.cache_path, '{}-chain.crt'.format(domain))
-        keyfile = os.path.join(self.cache_path, '{}.key'.format(domain))
+        crtfile = os.path.join(self.cache_path, '{}.crt'.format(domain_filename(domain)))
+        chainfile = os.path.join(self.cache_path, '{}-chain.crt'.format(domain_filename(domain)))
+        keyfile = os.path.join(self.cache_path, '{}.key'.format(domain_filename(domain)))
 
         # Acquire a lock to prevent that a domain has several renewal operations at the same time
         if not domain in self.locks:
@@ -254,7 +258,7 @@ class ACMEProxy:
 
             # Request a new cert
             logger.debug('Requesting new certificate for %s from the CA', domain)
-            (crt_pem, chain_pem) = self._request_new_cert(domain, keyfile, altname)
+            (crt_pem, chain_pem) = self._request_new_cert(domain, keyfile, altname, tsig_key)
             key_pem = dump_pem(key)
 
             # Save to files
@@ -282,9 +286,9 @@ class ACMEProxy:
         return list_certificates(self.cache_path)
 
     def delete_certificate(self, domain):
-        certificate_file = os.path.join(self.cache_path, '{}.crt'.format(domain))
-        chain_file = os.path.join(self.cache_path, '{}-chain.crt'.format(domain))
-        key_file = os.path.join(self.cache_path, '{}.key'.format(domain))
+        certificate_file = os.path.join(self.cache_path, '{}.crt'.format(domain_filename(domain)))
+        chain_file = os.path.join(self.cache_path, '{}-chain.crt'.format(domain_filename(domain)))
+        key_file = os.path.join(self.cache_path, '{}.key'.format(domain_filename(domain)))
 
         if os.path.isfile(certificate_file):
             logger.debug('Deleting %s', certificate_file)
@@ -300,7 +304,7 @@ class ACMEProxy:
 
     def revoke_certificate(self, domain):
         self._init_client()
-        certificate_file = os.path.join(self.cache_path, '{}.crt'.format(domain))
+        certificate_file = os.path.join(self.cache_path, '{}.crt'.format(domain_filename(domain)))
         cert = load_certificate(certificate_file)
         self.client.revoke(jose.util.ComparableX509(cert), 0)
         self.delete_certificate(domain)

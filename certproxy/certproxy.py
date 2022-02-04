@@ -138,6 +138,7 @@ def run():
             certificate_file=config.server.ca.certificate_file,
             crl_file=config.server.ca.crl_file,
             admin_hosts=config.server.admin_hosts,
+            tsig_keyring=config.server.tsig_keyring,
         )
         server.run(
             server=SSLServerAdapter,

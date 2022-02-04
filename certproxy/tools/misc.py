@@ -73,3 +73,6 @@ def writefile(path, data, owner=None, group=None, mode=None):
         if mode is not None:
             os.fchmod(f.fileno(), mode)
         return f.write(data)
+
+def domain_filename(domain: str):
+    return domain.replace('*', '_')
