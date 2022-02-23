@@ -101,7 +101,7 @@ class ACMEProxy:
                     try:
                         self._add_challenge_keyauth(token, validation)
                         url = "http://%s/.well-known/acme-challenge/%s" % (auth.body.identifier.value, token)
-                        responsecheck = requests.get(url=url)
+                        responsecheck = requests.get(url=url, timeout = 1)
                         if responsecheck.status_code != 200 or responsecheck.text != validation:
                             raise Exception('GET %s returned %d (%s)' % (url, responsecheck.status_code, responsecheck.text))
                         else:
