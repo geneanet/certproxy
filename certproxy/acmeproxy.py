@@ -93,12 +93,12 @@ class ACMEProxy:
                 self._init_client()
 
                 response, validation = challb.response_and_validation(self.private_key)
-                token = challb.chall.encode('token')
 
                 # HTTP-01 challenge
                 if isinstance(challb.chall, acme.challenges.HTTP01):
                     logger.debug('Trying HTTP01 challenge')
                     try:
+                        token = challb.chall.encode('token')
                         self._add_challenge_keyauth(token, validation)
                         url = "http://%s/.well-known/acme-challenge/%s" % (auth.body.identifier.value, token)
                         responsecheck = requests.get(url=url, timeout = 1)
