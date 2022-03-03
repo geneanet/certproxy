@@ -106,8 +106,8 @@ class ACMEProxy:
                             raise Exception('GET %s returned %d (%s)' % (url, responsecheck.status_code, responsecheck.text))
                         else:
                             return self.client.answer_challenge(challb, response)
-                    except Exception as e:
-                        logger.error('Challenge HTTP01 failed (%s)', e)
+                    except Exception:
+                        logger.exception('Challenge HTTP01 failed')
 
                 # DNS-01 challenge
                 elif isinstance(challb.chall, acme.challenges.DNS01) and tsig_key:
@@ -119,11 +119,11 @@ class ACMEProxy:
                         ret = self.client.answer_challenge(challb, response)
                         try:
                             delete_record(zone, subdomain, 'TXT', zonemaster_ip, tsig_key)
-                        except Exception as e:
-                            logger.warning('Exception during DNS cleanup: %s', e)
+                        except Exception:
+                            logger.warning('Exception during DNS cleanup', exc_info=True)
                         return ret
-                    except Exception as e:
-                        logger.error('Challenge DNS01 failed (%s)', e)
+                    except Exception:
+                        logger.exception('Challenge DNS01 failed')
 
             raise Exception("No challenge were supported.")
 
@@ -220,7 +220,7 @@ class ACMEProxy:
                 try:
                     key = load_privatekey(keyfile)
                 except Exception:
-                    logger.error('Unable to load private key %s', keyfile)
+                    logger.exception('Unable to load private key %s', keyfile)
                     key = None
             else:
                 key = None
@@ -230,7 +230,7 @@ class ACMEProxy:
                 try:
                     crt = load_certificate(crtfile)
                 except Exception:
-                    logger.error('Unable to load certificate %s', crtfile)
+                    logger.exception('Unable to load certificate %s', crtfile)
                     crt = None
             else:
                 crt = None
@@ -240,7 +240,7 @@ class ACMEProxy:
                 try:
                     chain = readfile(chainfile, binary=True)
                 except Exception:
-                    logger.error('Unable to load certificate chain %s', chainfile)
+                    logger.exception('Unable to load certificate chain %s', chainfile)
                     chain = bytes()
             else:
                 chain = bytes()

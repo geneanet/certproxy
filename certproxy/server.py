@@ -278,8 +278,8 @@ class Server(Bottle):
                         tsig_key=tsig_key
                     )
                     result['ok'].append(domain)
-                except Exception as e:
-                    logger.error('Encountered exception while getting certificate for domain %s (%s)', domain, e)
+                except Exception:
+                    logger.exception('Encountered exception while getting certificate for domain %s', domain)
                     result['error'].append(domain)
             else:
                 logger.error('No configuration found for domain %s', domain)

@@ -104,8 +104,8 @@ def run():
             configfile = '/etc/certproxy.yml'
 
         config = load_config(configfile)
-    except Exception as e:
-        logger.error('Unable to read config file %s (%s)', configfile, e)
+    except Exception:
+        logger.exception('Unable to read config file %s', configfile)
         exit(1)
 
     # Run requested subcommand

@@ -95,7 +95,7 @@ class Client:
             try:
                 key = load_privatekey(key_file)
             except Exception:
-                logger.error('Unable to load private key %s', key_file)
+                logger.exception('Unable to load private key %s', key_file)
                 key = None
         else:
             key = None
@@ -105,7 +105,7 @@ class Client:
             try:
                 crt = load_certificate(certificate_file)
             except Exception:
-                logger.error('Unable to load certificate %s', certificate_file)
+                logger.exception('Unable to load certificate %s', certificate_file)
                 crt = None
         else:
             crt = None
@@ -115,7 +115,7 @@ class Client:
             try:
                 chain = readfile(chain_file, binary=True)
             except Exception:
-                logger.error('Unable to load certificate chain %s', chain_file)
+                logger.exception('Unable to load certificate chain %s', chain_file)
                 chain = None
         else:
             chain = None

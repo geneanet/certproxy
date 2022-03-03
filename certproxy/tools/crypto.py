@@ -30,8 +30,8 @@ def list_certificates(path):
                 'fingerprint': x509_cert_fingerprint(crt),
                 'key_fingerprint': rsa_key_fingerprint(crt.public_key()),
             })
-        except Exception as e:
-            logger.error('Error while loading certificate %s (%s)', crt_file, e)
+        except Exception:
+            logger.exception('Error while loading certificate %s', crt_file)
 
     return certs
 
