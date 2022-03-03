@@ -12,6 +12,7 @@ from gevent.lock import Semaphore
 from gevent import idle
 import josepy as jose
 import requests
+from time import sleep
 
 from .tools.crypto import load_certificate, load_privatekey, load_or_create_privatekey, create_privatekey, dump_pem, list_certificates
 from .tools.misc import readfile, writefile, domain_filename
@@ -117,6 +118,7 @@ class ACMEProxy:
                         update_record(zone, subdomain, 300, 'TXT', validation, zonemaster_ip, tsig_key)
                         wait_record_consistency(zone, subdomain, 'TXT')
                         ret = self.client.answer_challenge(challb, response)
+                        sleep(1)
                         try:
                             delete_record(zone, subdomain, 'TXT', zonemaster_ip, tsig_key)
                         except Exception:
