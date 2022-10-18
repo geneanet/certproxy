@@ -102,7 +102,7 @@ def wait_record_consistency(zone: str, subdomain: str, recordtype: str, timeout:
             qname = dns.name.from_text('.'.join((subdomain, zone)))
             q = dns.message.make_query(qname, recordtype)
             r = dns.query.udp(q, ns)
-            rrset = r.find_rrset(r.answer, qname, dns.rdataclass.IN, dns.rdatatype.from_text(recordtype))
+            rrset = r.find_rrset(r.answer, qname, dns.rdataclass.IN, dns.rdatatype.from_text(recordtype), create=True)
             for rr in rrset:
                 values.add(rr)
         if len(values) == 1:
