@@ -12,7 +12,6 @@ from gevent.lock import Semaphore
 from gevent import idle
 import josepy as jose
 import requests
-from time import sleep
 
 from .tools.crypto import load_certificate, load_privatekey, load_or_create_privatekey, create_privatekey, dump_pem, list_certificates
 from .tools.misc import readfile, writefile, domain_filename
@@ -93,12 +92,11 @@ class ACMEProxy:
             for challb in auth.body.challenges:
                 self._init_client()
 
-                response, validation = challb.response_and_validation(self.private_key)
-
                 # HTTP-01 challenge
                 if isinstance(challb.chall, acme.challenges.HTTP01):
                     logger.debug('Trying HTTP01 challenge')
                     try:
+                        response, validation = challb.response_and_validation(self.private_key)
                         token = challb.chall.encode('token')
                         self._add_challenge_keyauth(token, validation)
                         url = "http://%s/.well-known/acme-challenge/%s" % (auth.body.identifier.value, token)
@@ -114,15 +112,13 @@ class ACMEProxy:
                 elif isinstance(challb.chall, acme.challenges.DNS01) and tsig_key:
                     logger.debug('Trying DNS01 challenge')
                     try:
+                        response, validation = challb.response_and_validation(self.private_key)
                         (zone, subdomain, zonemaster_ip) = fetch_acme_zonemaster(auth.body.identifier.value)
                         update_record(zone, subdomain, 300, 'TXT', validation, zonemaster_ip, tsig_key)
                         wait_record_consistency(zone, subdomain, 'TXT')
                         ret = self.client.answer_challenge(challb, response)
-                        sleep(1)
-                        try:
-                            delete_record(zone, subdomain, 'TXT', zonemaster_ip, tsig_key)
-                        except Exception:
-                            logger.warning('Exception during DNS cleanup', exc_info=True)
+                        delete_record(zone, subdomain, 'TXT', zonemaster_ip, tsig_key)
+
                         return ret
                     except Exception:
                         logger.exception('Challenge DNS01 failed')
