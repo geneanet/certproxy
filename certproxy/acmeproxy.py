@@ -117,7 +117,6 @@ class ACMEProxy:
                         update_record(zone, subdomain, 300, 'TXT', validation, zonemaster_ip, tsig_key)
                         wait_record_consistency(zone, subdomain, 'TXT')
                         ret = self.client.answer_challenge(challb, response)
-                        delete_record(zone, subdomain, 'TXT', zonemaster_ip, tsig_key)
 
                         return ret
                     except Exception:
