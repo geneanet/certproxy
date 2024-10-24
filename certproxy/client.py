@@ -4,7 +4,7 @@ import requests
 import os
 import subprocess
 import socket
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -126,7 +126,7 @@ class Client:
         # If the key correspond to the certificate
         if crt and key and crt.public_key().public_numbers() == key.public_key().public_numbers():
             # If the certificate is valid and before renew period
-            if crt.not_valid_before < datetime.utcnow() and crt.not_valid_after > datetime.utcnow() + timedelta(days=renew_margin):
+            if crt.not_valid_before_utc < datetime.now(timezone.utc) and crt.not_valid_after_utc > datetime.now(timezone.utc) + timedelta(days=renew_margin):
                 # Return the cert and its key
                 logger.info('The certificate for %s is still valid and not in the renew margin', domain)
 
@@ -136,7 +136,7 @@ class Client:
                 else:
                     logger.error('The certificate chain for %s is missing')
             else:
-                logger.info('The certificate for %s should be renewed (expires %s UTC, renew after %s UTC)', domain, crt.not_valid_after, crt.not_valid_after - timedelta(days=renew_margin))
+                logger.info('The certificate for %s should be renewed (expires %s UTC, renew after %s UTC)', domain, crt.not_valid_after_utc, crt.not_valid_after_utc - timedelta(days=renew_margin))
         elif crt and key:
             logger.error('The key %s does not correspond to the certificate %s', key_file, certificate_file)
 
@@ -161,7 +161,7 @@ class Client:
                 writefile(key_file, data['key'])
 
                 newcrt = load_certificate(certificate_file)
-                logger.info('Certificate for %s fetched (expires %s UTC, renew after %s UTC)', domain, newcrt.not_valid_after, newcrt.not_valid_after - timedelta(days=renew_margin))
+                logger.info('Certificate for %s fetched (expires %s UTC, renew after %s UTC)', domain, newcrt.not_valid_after_utc, newcrt.not_valid_after_utc - timedelta(days=renew_margin))
 
                 self.execute_actions(domain)
 

@@ -8,7 +8,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.x509.oid import NameOID
 import os
 import uuid
-import datetime
+from datetime import datetime, timedelta, timezone
 from base64 import urlsafe_b64encode
 import logging
 
@@ -25,8 +25,8 @@ def list_certificates(path):
             certs.append({
                 'file': crt_file,
                 'cn': get_cn(crt.subject),
-                'not_valid_before': crt.not_valid_before,
-                'not_valid_after': crt.not_valid_after,
+                'not_valid_before': crt.not_valid_before_utc,
+                'not_valid_after': crt.not_valid_after_utc,
                 'fingerprint': x509_cert_fingerprint(crt),
                 'key_fingerprint': rsa_key_fingerprint(crt.public_key()),
             })
@@ -64,9 +64,9 @@ def load_or_create_crl(crl_file, ca_crt, pkey):
         crl = x509.CertificateRevocationListBuilder().issuer_name(
             ca_crt.subject
         ).last_update(
-            datetime.datetime.utcnow()
+            datetime.now(timezone.utc)
         ).next_update(
-            datetime.datetime.utcnow() + datetime.timedelta(days=365 * 10)
+            datetime.now(timezone.utc) + timedelta(days=365 * 10)
         ).sign(
             private_key=pkey,
             algorithm=hashes.SHA256(),
@@ -90,9 +90,9 @@ def update_crl(crl_file, revoked_certs, ca_crt, pkey):
     crl = x509.CertificateRevocationListBuilder().issuer_name(
         ca_crt.subject
     ).last_update(
-        datetime.datetime.utcnow()
+        datetime.now(timezone.utc)
     ).next_update(
-        datetime.datetime.utcnow() + datetime.timedelta(days=365 * 10)
+        datetime.now(timezone.utc) + timedelta(days=365 * 10)
     )
 
     for cert in revoked_certs:
@@ -100,7 +100,7 @@ def update_crl(crl_file, revoked_certs, ca_crt, pkey):
             x509.RevokedCertificateBuilder().serial_number(
                 cert.serial
             ).revocation_date(
-                datetime.datetime.utcnow()
+                datetime.now(timezone.utc)
             ).build(
                 default_backend()
             )
@@ -207,9 +207,9 @@ def sign_certificate_request(csr_file, crt_file, ca_crt, ca_pkey):
     ).serial_number(
         uuid.uuid4().int  # pylint: disable=no-member
     ).not_valid_before(
-        datetime.datetime.utcnow()
+        datetime.now(timezone.utc)
     ).not_valid_after(
-        datetime.datetime.utcnow() + datetime.timedelta(days=365 * 10)
+        datetime.now(timezone.utc) + timedelta(days=365 * 10)
     ).add_extension(
         extension=x509.KeyUsage(
             digital_signature=True, key_encipherment=True, content_commitment=True,
@@ -251,9 +251,9 @@ def load_or_create_ca_certificate(crt_file, subject, pkey):
         ).serial_number(
             uuid.uuid4().int  # pylint: disable=no-member
         ).not_valid_before(
-            datetime.datetime.utcnow()
+            datetime.now(timezone.utc)
         ).not_valid_after(
-            datetime.datetime.utcnow() + datetime.timedelta(days=365 * 10)
+            datetime.now(timezone.utc) + timedelta(days=365 * 10)
         ).add_extension(
             extension=x509.KeyUsage(
                 digital_signature=True, key_encipherment=True, key_cert_sign=True, crl_sign=True, content_commitment=True,

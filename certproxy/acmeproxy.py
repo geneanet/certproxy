@@ -5,7 +5,7 @@ import acme.client
 import acme.challenges
 import acme.messages
 from OpenSSL import crypto
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 import os
 from gevent.lock import Semaphore
@@ -127,7 +127,7 @@ class ACMEProxy:
     def _gc_challenge_keyauth(self):
         """ Garbage collect expired challenges """
         for token, challenge in dict(self.challenges).items():
-            if challenge.expiration < datetime.utcnow():
+            if challenge.expiration < datetime.now(timezone.utc):
                 logger.debug("Deleting expired key authorization for token %s.", token)
                 del self.challenges[token]
 
@@ -136,7 +136,7 @@ class ACMEProxy:
         logger.debug("Saving key authorization for token %s.", token)
         self.challenges[token] = ChallengeKeyAuth(
             keyauth=keyauth,
-            expiration=datetime.utcnow() + timedelta(days=1)
+            expiration=datetime.now(timezone.utc) + timedelta(days=1)
         )
 
     def get_challenge_keyauth(self, token):
@@ -245,11 +245,11 @@ class ACMEProxy:
             # If the key correspond to the certificate
             if crt and key and crt.public_key().public_numbers() == key.public_key().public_numbers():
                 # If the certificate has expired
-                if datetime.utcnow() > crt.not_valid_after:
+                if datetime.now(timezone.utc) > crt.not_valid_after_utc:
                     logger.warning('The certificate for %s has expired', domain)
 
                 # If forced renew OR auto renew during renew period
-                if force_renew or (auto_renew and datetime.utcnow() > crt.not_valid_after - timedelta(days=renew_margin)):
+                if force_renew or (auto_renew and datetime.now(timezone.utc) > crt.not_valid_after_utc - timedelta(days=renew_margin)):
                     logger.info('The certificate for %s will be renewed' + ' (forced renew)' if force_renew else '', domain)
                 else:
                     # Return the cert and its key
