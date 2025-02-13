@@ -211,16 +211,16 @@ def sign_certificate_request(csr_file, crt_file, ca_crt, ca_pkey):
     ).not_valid_after(
         datetime.now(timezone.utc) + timedelta(days=365 * 10)
     ).add_extension(
-        extension=x509.KeyUsage(
+        x509.KeyUsage(
             digital_signature=True, key_encipherment=True, content_commitment=True,
             data_encipherment=False, key_agreement=False, encipher_only=False, decipher_only=False, key_cert_sign=False, crl_sign=False
         ),
         critical=True
     ).add_extension(
-        extension=x509.BasicConstraints(ca=False, path_length=None),
+        x509.BasicConstraints(ca=False, path_length=None),
         critical=True
     ).add_extension(
-        extension=x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_pkey.public_key()),
+        x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_pkey.public_key()),
         critical=False
     ).sign(
         private_key=ca_pkey,
@@ -255,19 +255,19 @@ def load_or_create_ca_certificate(crt_file, subject, pkey):
         ).not_valid_after(
             datetime.now(timezone.utc) + timedelta(days=365 * 10)
         ).add_extension(
-            extension=x509.KeyUsage(
+            x509.KeyUsage(
                 digital_signature=True, key_encipherment=True, key_cert_sign=True, crl_sign=True, content_commitment=True,
                 data_encipherment=False, key_agreement=False, encipher_only=False, decipher_only=False
             ),
             critical=True
         ).add_extension(
-            extension=x509.BasicConstraints(ca=True, path_length=0),
+            x509.BasicConstraints(ca=True, path_length=0),
             critical=False
         ).add_extension(
-            extension=x509.SubjectKeyIdentifier.from_public_key(pkey.public_key()),
+            x509.SubjectKeyIdentifier.from_public_key(pkey.public_key()),
             critical=False
         ).add_extension(
-            extension=x509.AuthorityKeyIdentifier.from_issuer_public_key(pkey.public_key()),
+            x509.AuthorityKeyIdentifier.from_issuer_public_key(pkey.public_key()),
             critical=False
         ).sign(
             private_key=pkey,
