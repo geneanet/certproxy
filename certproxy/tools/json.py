@@ -2,7 +2,7 @@
 
 import simplejson
 import re
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timezone, timedelta
 
 re_date = r'(?P<date>(?:[1-9]\d{3}-(?:(?:0[1-9]|1[0-2])-(?:0[1-9]|1\d|2[0-8])|(?:0[13-9]|1[0-2])-(?:29|30)|(?:0[13578]|1[02])-31)|(?:[1-9]\d(?:0[48]|[2468][048]|[13579][26])|(?:[2468][048]|[13579][26])00)-02-29))'
 re_hour = r'(?P<hour>(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d)(?:\.(?P<microsecond>\d+))?'
@@ -34,28 +34,46 @@ class JSONDecoder(simplejson.JSONDecoder):
         return o
 
     @staticmethod
+    def parseTimeZone(tz):
+        if not isinstance(tz, str):
+            raise TypeError('String expected')
+        
+        if tz == 'Z':
+            return timezone.utc
+        else:
+            (h, m) = tz[1:].split(':')
+            if tz[0] == '+':
+                (h, m) = (int(h), int(m))
+            else:
+                (h, m) = (-int(h), -int(m))
+            return timezone(offset=timedelta(hours=h, minutes=m))
+
+    @staticmethod
     def parseDateTime(o):
         if isinstance(o, str):
+            tz = None
             match = re.match('@ISO8601 ' + re_hour + re_tz + '?', o)
             if match:
                 if match.group('tz'):
-                    raise ValueError('Timezone not supported')
+                    tz = JSONDecoder.parseTimeZone(match.group('tz'))
+                    o = o[:-len(match.group('tz'))]
                 if match.group('microsecond'):
-                    return datetime.strptime(o, "@ISO8601 %H:%M:%S.%f").time()
+                    return datetime.strptime(o, "@ISO8601 %H:%M:%S.%f").astimezone(tz)
                 else:
-                    return datetime.strptime(o, "@ISO8601 %H:%M:%S").time()
+                    return datetime.strptime(o, "@ISO8601 %H:%M:%S").astimezone(tz)
             else:
                 match = re.match('@ISO8601 ' + re_date + '(?:T' + re_hour + re_tz + '?)?', o)
                 if match:
                     if match.group('tz'):
-                        raise ValueError('Timezone not supported')
+                        tz = JSONDecoder.parseTimeZone(match.group('tz'))
+                        o = o[:-len(match.group('tz'))]
                     if match.group('hour'):
                         if match.group('microsecond'):
-                            return datetime.strptime(o, "@ISO8601 %Y-%m-%dT%H:%M:%S.%f")
+                            return datetime.strptime(o, "@ISO8601 %Y-%m-%dT%H:%M:%S.%f").astimezone(tz)
                         else:
-                            return datetime.strptime(o, "@ISO8601 %Y-%m-%dT%H:%M:%S")
+                            return datetime.strptime(o, "@ISO8601 %Y-%m-%dT%H:%M:%S").astimezone(tz)
                     else:
-                        return datetime.strptime(o, "@ISO8601 %Y-%m-%d").date()
+                        return datetime.strptime(o, "@ISO8601 %Y-%m-%d").astimezone(tz).date()
                 else:
                     return o
         elif isinstance(o, dict):
