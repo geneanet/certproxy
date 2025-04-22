@@ -15,7 +15,7 @@ import logging
 logger = logging.getLogger('certproxy.tools.crypto')
 
 
-def list_certificates(path):
+def list_certificates(path, sorted_by='not_valid_after'):
     certs = []
 
     for crt_file in filter(lambda f: f.endswith('.crt') and not f.endswith('-chain.crt'), os.listdir(path)):
@@ -33,7 +33,7 @@ def list_certificates(path):
         except Exception:
             logger.exception('Error while loading certificate %s', crt_file)
 
-    return certs
+    return sorted(certs, key = lambda c: c[sorted_by])
 
 
 def dict_to_x509_name(data):
