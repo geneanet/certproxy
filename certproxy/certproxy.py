@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from datetime import datetime, timedelta, timezone
 from gevent import monkey
 monkey.patch_all()
 import logging
@@ -41,7 +42,8 @@ def run():
     parser_admin = subp.add_parser('admin', help='Act as an admin of a CertProxy server')
     subp_admin = parser_admin.add_subparsers(dest='action', title='Actions', help="Action")
     subp_admin.required = True
-    subp_admin.add_parser('list', help='List managed certificates')
+    parser_admin_list = subp_admin.add_parser('list', help='List managed certificates')
+    parser_admin_list.add_argument('--expire-before-days', type=int, default = None, help='List only certificates expiring before that many days')
     parser_admin_delete = subp_admin.add_parser('delete', help='Delete a managed certificate')
     parser_admin_delete.add_argument('domain', help='Domain')
     parser_admin_revoke = subp_admin.add_parser('revoke', help='Revoke a managed certificate')
@@ -56,7 +58,8 @@ def run():
     subp_client = parser_client.add_subparsers(dest='action', title='Actions', help="Action")
     subp_client.required = True
     subp_client.add_parser('requestauth', help='Request authorization from the server')
-    subp_client.add_parser('list', help='List local certificates')
+    parser_client_list = subp_client.add_parser('list', help='List local certificates')
+    parser_client_list.add_argument('--expire-before-days', type=int, default = None, help='List only certificates expiring before that many days')
     parser_client_fetch = subp_client.add_parser('fetch', help='Fetch a certificate/key pair')
     parser_client_fetch.add_argument('domain', help='Domain')
     parser_client_fetch.add_argument('--force', default=False, action='store_true', help='Overwrite the local certificate if it is still valid')
@@ -160,12 +163,15 @@ def run():
             table = []
             headers = ['CN', 'Expiration', 'Fingerprint']
             for cert in client.admin_list():
+                if args.expire_before_days != None and (cert['not_valid_after'] > datetime.now(timezone.utc) + timedelta(days=args.expire_before_days) ) :
+                    continue
                 table.append([
                     cert['cn'],
                     cert['not_valid_after'],
                     cert['fingerprint'],
                 ])
-            print_array(table, headers)
+            if table:
+                print_array(table, headers)
         elif args.action == 'delete':
             client.admin_delete(args.domain)
         elif args.action == 'revoke':
@@ -192,12 +198,15 @@ def run():
             table = []
             headers = ['CN', 'Expiration', 'Fingerprint']
             for cert in client.list_certificates():
+                if args.expire_before_days != None and (cert['not_valid_after'] > datetime.now(timezone.utc) + timedelta(days=args.expire_before_days) ) :
+                    continue
                 table.append([
                     cert['cn'],
                     cert['not_valid_after'],
                     cert['fingerprint'],
                 ])
-            print_array(table, headers)
+            if table:
+                print_array(table, headers)
         elif args.action == 'fetchall':
             for cert in client.list_certificates():
                 client.requestcert(cert['cn'], force=args.force, force_renew=args.force_renew)
