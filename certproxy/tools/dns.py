@@ -46,12 +46,12 @@ def fetch_acme_zonemaster(domain: str):
 
     logger.debug('Found acme record %s', domain)
 
-    domain = domain.split('.')
+    domain_parts = domain.split('.')
     subdomain = []
-    while len(domain):
-        item = domain[0]
+    while len(domain_parts):
+        item = domain_parts[0]
 
-        zone = '.'.join(domain)
+        zone = '.'.join(domain_parts)
 
         record = fetch_first_record(zone, 'SOA')
         if record:
@@ -65,7 +65,7 @@ def fetch_acme_zonemaster(domain: str):
                 return None
 
         subdomain.append(item)
-        domain.pop(0)
+        domain_parts.pop(0)
 
     logger.error('No zone master found !')
     return None
@@ -85,6 +85,11 @@ def delete_record(zone: str, subdomain: str, recordtype: str, zonemaster_ip: str
     dns.query.tcp(update, zonemaster_ip, timeout=10)
 
 def wait_record_consistency(zone: str, subdomain: str, recordtype: str, timeout: float=10, wait: float=1):
+    if subdomain:
+        fqdn = '.'.join((subdomain, zone))
+    else:
+        fqdn = zone
+
     nameservers = [str(ns.target) for ns in fetch_records(zone, 'NS')]
 
     nameservers_ip = []
@@ -99,7 +104,7 @@ def wait_record_consistency(zone: str, subdomain: str, recordtype: str, timeout:
     start_time = time.time()
     while (time.time() - start_time) < timeout:
         for ns in nameservers_ip:
-            qname = dns.name.from_text('.'.join((subdomain, zone)))
+            qname = dns.name.from_text(fqdn)
             q = dns.message.make_query(qname, recordtype)
             r = dns.query.udp(q, ns)
             rrset = r.find_rrset(r.answer, qname, dns.rdataclass.IN, dns.rdatatype.from_text(recordtype), create=True)
@@ -108,11 +113,11 @@ def wait_record_consistency(zone: str, subdomain: str, recordtype: str, timeout:
             if len(rrset) == 0:
                 values.add(None)
         if len(values) == 1:
-            logger.debug('Record %s %s consistency reached (%s)', '.'.join((subdomain, zone)), recordtype, values)
+            logger.debug('Record %s %s consistency reached (%s)', fqdn, recordtype, values)
             return(values.pop())
-        logger.debug('Waiting for record %s %s consistency (%s)', '.'.join((subdomain, zone)), recordtype, values)
+        logger.debug('Waiting for record %s %s consistency (%s)', fqdn, recordtype, values)
         time.sleep(wait)
         values.clear()
 
-    raise Exception('Timeout waiting for %s record consistency (%s) after %f seconds' % ('.'.join((subdomain, zone)), values, timeout))
+    raise Exception('Timeout waiting for %s record consistency (%s) after %f seconds' % (fqdn, values, timeout))
     
