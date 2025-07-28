@@ -88,39 +88,45 @@ class ACMEProxy:
         else:
             logger.debug("Processing authorization for domain %s.", auth.body.identifier.value)
 
-            # Pick the first supported challenge
+            http01_challenge = None
+            dns01_challenge = None
             for challb in auth.body.challenges:
-                self._init_client()
-
-                # HTTP-01 challenge
                 if isinstance(challb.chall, acme.challenges.HTTP01):
-                    logger.debug('Trying HTTP01 challenge')
-                    try:
-                        response, validation = challb.response_and_validation(self.private_key)
-                        token = challb.chall.encode('token')
-                        self._add_challenge_keyauth(token, validation)
-                        url = "http://%s/.well-known/acme-challenge/%s" % (auth.body.identifier.value, token)
-                        responsecheck = requests.get(url=url, timeout = 1)
-                        if responsecheck.status_code != 200 or responsecheck.text != validation:
-                            raise Exception('GET %s returned %d (%s)' % (url, responsecheck.status_code, responsecheck.text))
-                        else:
-                            return self.client.answer_challenge(challb, response)
-                    except Exception:
-                        logger.exception('Challenge HTTP01 failed')
-
-                # DNS-01 challenge
+                    http01_challenge = challb
                 elif isinstance(challb.chall, acme.challenges.DNS01) and tsig_key:
-                    logger.debug('Trying DNS01 challenge')
-                    try:
-                        response, validation = challb.response_and_validation(self.private_key)
-                        (zone, subdomain, zonemaster_ip) = fetch_acme_zonemaster(auth.body.identifier.value)
-                        update_record(zone, subdomain, 300, 'TXT', validation, zonemaster_ip, tsig_key)
-                        wait_record_consistency(zone, subdomain, 'TXT')
-                        ret = self.client.answer_challenge(challb, response)
+                    dns01_challenge = challb
 
-                        return ret
-                    except Exception:
-                        logger.exception('Challenge DNS01 failed')
+            # Try DNS-01 challenge first if supported
+            if dns01_challenge and tsig_key:
+                logger.debug('Trying DNS01 challenge')
+                self._init_client()
+                try:
+                    response, validation = dns01_challenge.response_and_validation(self.private_key)
+                    (zone, subdomain, zonemaster_ip) = fetch_acme_zonemaster(auth.body.identifier.value)
+                    update_record(zone, subdomain, 300, 'TXT', validation, zonemaster_ip, tsig_key)
+                    wait_record_consistency(zone, subdomain, 'TXT')
+                    ret = self.client.answer_challenge(dns01_challenge, response)
+
+                    return ret
+                except Exception:
+                    logger.exception('Challenge DNS01 failed')
+            
+            # Try HTTP-01 challenge
+            if http01_challenge:
+                logger.debug('Trying HTTP01 challenge')
+                self._init_client()
+                try:
+                    response, validation = http01_challenge.response_and_validation(self.private_key)
+                    token = http01_challenge.chall.encode('token')
+                    self._add_challenge_keyauth(token, validation)
+                    url = "http://%s/.well-known/acme-challenge/%s" % (auth.body.identifier.value, token)
+                    responsecheck = requests.get(url=url, timeout = 1)
+                    if responsecheck.status_code != 200 or responsecheck.text != validation:
+                        raise Exception('GET %s returned %d (%s)' % (url, responsecheck.status_code, responsecheck.text))
+                    else:
+                        return self.client.answer_challenge(http01_challenge, response)
+                except Exception:
+                    logger.exception('Challenge HTTP01 failed')
 
             raise Exception("No challenge were supported.")
 
