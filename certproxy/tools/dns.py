@@ -74,7 +74,7 @@ def update_record(zone: str, subdomain: str, ttl: int, recordtype: str, recordva
     logger.debug('Updating record for zone %s (zone master %s): %s %d %s "%s"', zone, zonemaster_ip, subdomain, ttl, recordtype, recordvalue)
     keyring = dns.tsigkeyring.from_text(tsig_key)
     update = dns.update.Update(zone, keyring=keyring)
-    update.replace(subdomain, ttl, recordtype, recordvalue)
+    update.add(subdomain, ttl, recordtype, recordvalue)
     dns.query.tcp(update, zonemaster_ip, timeout=10)
 
 def delete_record(zone: str, subdomain: str, recordtype: str, zonemaster_ip: str, tsig_key: dict):
